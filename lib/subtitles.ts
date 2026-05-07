@@ -1,27 +1,30 @@
-export type SubtitleStyleId =
-  | "viral-tiktok"
-  | "clean-minimal"
-  | "hook-style"
-  | "neon-pulse"
-  | "kinetic-bold"
-  | "typewriter"
-  | "karaoke-bar"
-  | "comic-pop"
-  | "glass-card"
-  | "retro-wave"
-  | "news-lower"
-  | "luxury-serif"
-  | "outlined-impact"
-  | "gradient-glow"
-  | "vertical-stack"
-  | "caption-bubble"
-  | "cyber-scan"
-  | "soft-shadow"
-  | "sticker-cutout"
-  | "cinematic"
-  | "split-color"
-  | "minimal-caps"
-  | "fire-flash";
+export const builtInSubtitleStyleIds = [
+  "viral-tiktok",
+  "clean-minimal",
+  "hook-style",
+  "neon-pulse",
+  "kinetic-bold",
+  "typewriter",
+  "karaoke-bar",
+  "comic-pop",
+  "glass-card",
+  "retro-wave",
+  "news-lower",
+  "luxury-serif",
+  "outlined-impact",
+  "gradient-glow",
+  "vertical-stack",
+  "caption-bubble",
+  "cyber-scan",
+  "soft-shadow",
+  "sticker-cutout",
+  "cinematic",
+  "split-color",
+  "minimal-caps",
+  "fire-flash",
+] as const;
+
+export type SubtitleStyleId = (typeof builtInSubtitleStyleIds)[number];
 
 export type VideoBackground = "black" | "transparent";
 export type VideoFormatId =
@@ -54,6 +57,35 @@ export type TypographyOverrides = {
   textAlign?: "left" | "center" | "right";
 };
 
+export type SubtitleAnimation =
+  | "none"
+  | "pop"
+  | "slide"
+  | "fade"
+  | "type"
+  | "scan"
+  | "flash"
+  | "wave"
+  | "float";
+
+export type SubtitleBehaviorOverrides = {
+  animation?: SubtitleAnimation;
+  wordMode?: boolean;
+  bottom?: boolean;
+  background?: string;
+  boxShadow?: string;
+  textShadow?: string;
+  stroke?: string;
+  padding?: string;
+  radius?: number;
+};
+
+export type CustomSubtitleStyleConfig = {
+  baseStyle: SubtitleStyleId;
+  typography: TypographyOverrides;
+  behavior?: SubtitleBehaviorOverrides;
+};
+
 export type SubtitleItem = {
   id: string;
   text: string;
@@ -77,6 +109,7 @@ export type Timeline = {
 export type SubtitleVideoProps = {
   text: string;
   style: SubtitleStyleId;
+  customStyle?: CustomSubtitleStyleConfig;
   background?: VideoBackground;
   subtitles?: SubtitleItem[];
   width?: number;
@@ -146,6 +179,13 @@ export const subtitleStyles: SubtitleStyle[] = [
   {id: "minimal-caps", name: "Minimal Caps", description: "Tiny uppercase captions with wide spacing", accent: "#94a3b8", previewClass: "font-bold uppercase text-slate-200"},
   {id: "fire-flash", name: "Fire Flash", description: "Hot red flash with aggressive entry", accent: "#f97316", previewClass: "font-black uppercase text-orange-200"}
 ];
+
+export function isBuiltInSubtitleStyleId(value: unknown): value is SubtitleStyleId {
+  return (
+    typeof value === "string" &&
+    builtInSubtitleStyleIds.includes(value as SubtitleStyleId)
+  );
+}
 
 export function splitTextIntoChunks(text: string): string[] {
   const normalized = text

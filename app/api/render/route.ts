@@ -6,10 +6,17 @@ import os from "node:os";
 import path from "node:path";
 import {mkdir, rename, stat, unlink} from "node:fs/promises";
 import {
+  sanitizeCustomStyleConfig,
+  sanitizeStyleCode,
+  sanitizeTypography
+} from "@/lib/community-styles";
+import {
   sampleScript,
   type SubtitleItem,
-  subtitleStyles,
+  isBuiltInSubtitleStyleId,
+  type CustomSubtitleStyleConfig,
   type SubtitleStyleId,
+  type TypographyOverrides,
   type VideoBackground
 } from "@/lib/subtitles";
 
@@ -22,14 +29,14 @@ type RenderRequest = {
   style?: SubtitleStyleId;
   background?: VideoBackground;
   subtitles?: SubtitleItem[];
+  customStyle?: CustomSubtitleStyleConfig;
+  typography?: TypographyOverrides;
   width?: number;
   height?: number;
   format?: "mp4" | "webm";
+  kind?: "settings" | "code";
+  code?: string;
 };
-
-function isSubtitleStyle(value: unknown): value is SubtitleStyleId {
-  return typeof value === "string" && subtitleStyles.some((style) => style.id === value);
-}
 
 /**
  * Transcode a ProRes 4444 .mov to HEVC with alpha (.mov / hvc1).
@@ -102,12 +109,17 @@ function getBundle() {
 export async function POST(request: Request) {
   const body = (await request.json().catch(() => ({}))) as RenderRequest;
   const text = body.text?.trim() || sampleScript;
-  const style = isSubtitleStyle(body.style) ? body.style : "viral-tiktok";
+  const customStyle = sanitizeCustomStyleConfig(body.customStyle);
+  const style = customStyle?.baseStyle || (isBuiltInSubtitleStyleId(body.style) ? body.style : "viral-tiktok");
+  const typography = sanitizeTypography(body.typography);
   const background = body.background === "transparent" ? "transparent" : "black";
   const format = body.format === "webm" ? "webm" : "mp4";
   const width = Number(body.width) || 1080;
   const height = Number(body.height) || 1920;
   const subtitles = Array.isArray(body.subtitles) ? body.subtitles : undefined;
+  const isCodeStyle = body.kind === "code" && typeof body.code === "string" && body.code.trim().length > 0;
+  const code = isCodeStyle ? sanitizeStyleCode(body.code) : undefined;
+  const compositionId = isCodeStyle ? "CodeStyleVideo" : "SubtitleVideo";
   // Per Remotion docs, ProRes 4444 .mov is the recommended transparent format
   // for use in editors (Premiere, Final Cut, DaVinci, After Effects).
   const isTransparent = background === "transparent";
@@ -131,10 +143,12 @@ export async function POST(request: Request) {
 
         send({type: "stage", stage: "composing", progress: 0.05});
 
-        const inputProps = {text, style, background, subtitles, width, height};
+        const inputProps = isCodeStyle
+          ? {text, background, subtitles, width, height, code}
+          : {text, style, background, subtitles, width, height, customStyle, typography};
         const composition = await selectComposition({
           serveUrl: bundled,
-          id: "SubtitleVideo",
+          id: compositionId,
           inputProps
         });
 

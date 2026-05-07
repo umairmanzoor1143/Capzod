@@ -12,6 +12,7 @@ import {
   sampleScript,
   secondsToFrames,
   type SubtitleItem,
+  type SubtitleBehaviorOverrides,
   type SubtitleStyleId,
   type SubtitleVideoProps,
   type TypographyOverrides
@@ -38,7 +39,7 @@ type StyleConfig = {
   singleLine?: boolean;
   maxWidthPercent?: number;
   textAlign?: "left" | "center" | "right";
-  animation: "none" | "pop" | "slide" | "fade" | "type" | "scan" | "flash" | "wave" | "float";
+  animation: NonNullable<SubtitleBehaviorOverrides["animation"]>;
 };
 
 const defaultProps: SubtitleVideoProps = {
@@ -118,12 +119,14 @@ function transformForAnimation(animation: StyleConfig["animation"], localFrame: 
 function RenderedText({
   chunk,
   config,
+  styleId,
   activeWordIndex,
   localFrame,
   fps
 }: {
   chunk: SubtitleItem;
   config: StyleConfig;
+  styleId: SubtitleStyleId;
   activeWordIndex: number;
   localFrame: number;
   fps: number;
@@ -163,11 +166,11 @@ function RenderedText({
         whiteSpace: config.singleLine ? "nowrap" : "normal"
       }}
     >
-      {config.wordMode || ["split-color", "vertical-stack"].includes(defaultStyle(config)) ? (
+      {config.wordMode || ["split-color", "vertical-stack"].includes(styleId) ? (
         <span style={{display: "flex", flexWrap: "wrap", justifyContent: "center", gap: "8px 20px"}}>
           {words.map((word, index) => {
             const active = index === activeWordIndex;
-            const vertical = defaultStyle(config) === "vertical-stack";
+            const vertical = styleId === "vertical-stack";
             return (
               <span
                 key={`${chunk.id}-${word}-${index}`}
@@ -176,9 +179,9 @@ function RenderedText({
                   flexBasis: vertical ? "100%" : "auto",
                   color: active || index % 2 === 1 ? config.accent : config.color === "transparent" ? config.accent : config.color,
                   transform: active ? "scale(1.12) translateY(-3px)" : "scale(1)",
-                  background: defaultStyle(config) === "karaoke-bar" && active ? config.accent : undefined,
-                  padding: defaultStyle(config) === "karaoke-bar" && active ? "2px 12px" : undefined,
-                  borderRadius: defaultStyle(config) === "karaoke-bar" && active ? 8 : undefined
+                  background: styleId === "karaoke-bar" && active ? config.accent : undefined,
+                  padding: styleId === "karaoke-bar" && active ? "2px 12px" : undefined,
+                  borderRadius: styleId === "karaoke-bar" && active ? 8 : undefined
                 }}
               >
                 {word}
@@ -213,11 +216,6 @@ function RenderedText({
   );
 }
 
-function defaultStyle(config: StyleConfig): SubtitleStyleId | "" {
-  const match = Object.entries(styleConfigs).find(([, value]) => value === config);
-  return (match?.[0] as SubtitleStyleId | undefined) ?? "";
-}
-
 export function SubtitleVideo(props: Partial<SubtitleVideoProps>) {
   const frame = useCurrentFrame();
   const {fps} = useVideoConfig();
@@ -225,8 +223,10 @@ export function SubtitleVideo(props: Partial<SubtitleVideoProps>) {
   const timeline = createTimelineFromSubtitles(mergedProps.subtitles, mergedProps.text || sampleScript);
   const currentSecond = frame / fps;
   const activeChunk = getActiveChunk(timeline.chunks, currentSecond);
-  const baseConfig = styleConfigs[mergedProps.style] ?? styleConfigs["viral-tiktok"];
-  const config = mergeTypography(baseConfig, mergedProps.typography, activeChunk?.overrides);
+  const baseStyleId = mergedProps.customStyle?.baseStyle ?? mergedProps.style;
+  const baseConfig = styleConfigs[baseStyleId] ?? styleConfigs["viral-tiktok"];
+  const customConfig = mergeCustomStyle(baseConfig, mergedProps.customStyle);
+  const config = mergeTypography(customConfig, mergedProps.typography, activeChunk?.overrides);
 
   if (!activeChunk) {
     return <AbsoluteFill style={{background: mergedProps.background === "transparent" ? "transparent" : "#030303"}} />;
@@ -241,6 +241,7 @@ export function SubtitleVideo(props: Partial<SubtitleVideoProps>) {
       <RenderedText
         chunk={activeChunk}
         config={config}
+        styleId={baseStyleId}
         activeWordIndex={activeWordIndex}
         localFrame={localFrame}
         fps={fps}
@@ -272,4 +273,32 @@ function mergeTypography(
     };
   };
   return apply(apply(base, global), perChunk);
+}
+
+function mergeCustomStyle(
+  base: StyleConfig,
+  custom?: SubtitleVideoProps["customStyle"]
+): StyleConfig {
+  if (!custom) return base;
+  return applyBehavior(mergeTypography(base, custom.typography), custom.behavior);
+}
+
+function applyBehavior(
+  base: StyleConfig,
+  behavior?: SubtitleBehaviorOverrides
+): StyleConfig {
+  if (!behavior) return base;
+
+  return {
+    ...base,
+    animation: behavior.animation ?? base.animation,
+    wordMode: behavior.wordMode ?? base.wordMode,
+    bottom: behavior.bottom ?? base.bottom,
+    background: behavior.background ?? base.background,
+    boxShadow: behavior.boxShadow ?? base.boxShadow,
+    textShadow: behavior.textShadow ?? base.textShadow,
+    stroke: behavior.stroke ?? base.stroke,
+    padding: behavior.padding ?? base.padding,
+    radius: behavior.radius ?? base.radius,
+  };
 }

@@ -105,3 +105,78 @@ input {
 .scroll-thin::-webkit-scrollbar-track {
   background: transparent;
 }
+
+/* ----- Speakzy code editor (Prism / react-simple-code-editor) ----- */
+.speakzy-code-textarea {
+  outline: none !important;
+}
+.speakzy-code-textarea:focus {
+  outline: none !important;
+}
+.speakzy-code-pre {
+  pointer-events: none;
+}
+
+/* Catppuccin Mocha-inspired Prism theme */
+.token.comment,
+.token.prolog,
+.token.cdata {
+  color: #6c7086;
+  font-style: italic;
+}
+.token.punctuation {
+  color: #cdd6f4;
+}
+.token.namespace {
+  opacity: 0.8;
+}
+.token.property,
+.token.tag,
+.token.constant,
+.token.symbol,
+.token.deleted {
+  color: #f38ba8;
+}
+.token.boolean,
+.token.number {
+  color: #fab387;
+}
+.token.selector,
+.token.attr-name,
+.token.string,
+.token.char,
+.token.builtin,
+.token.inserted {
+  color: #a6e3a1;
+}
+.token.operator,
+.token.entity,
+.token.url,
+.language-css .token.string,
+.style .token.string,
+.token.variable {
+  color: #94e2d5;
+}
+.token.atrule,
+.token.attr-value,
+.token.function,
+.token.class-name {
+  color: #f9e2af;
+}
+.token.keyword {
+  color: #cba6f7;
+}
+.token.regex,
+.token.important {
+  color: #f5c2e7;
+}
+.token.important,
+.token.bold {
+  font-weight: 700;
+}
+.token.italic {
+  font-style: italic;
+}
+.token.parameter {
+  color: #cdd6f4;
+}

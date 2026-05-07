@@ -1,11 +1,15 @@
 "use client";
 import React, { useState, useMemo, useRef, useCallback, useEffect } from "react";
+import Link from "next/link";
 import { Player, PlayerRef } from "@remotion/player";
+import type { User } from "@supabase/supabase-js";
 import {
-  Play, Pause, Plus, Trash2, Download, Settings, LogOut,
+  Play, Pause, Plus, Trash2, Download,
   SkipBack, SkipForward, Maximize2, Check, ChevronDown, Sliders, Sparkles, Wand2,
+  Users, Code2,
 } from "lucide-react";
 import { SubtitleVideo } from "@/remotion/SubtitleVideo";
+import { CodeStyleVideo } from "@/remotion/CodeStyleVideo";
 import {
   SubtitleItem,
   SubtitleStyleId,
@@ -17,15 +21,25 @@ import {
   videoFormats,
   createTimelineFromText,
   getTimelineDurationInFrames,
+  isBuiltInSubtitleStyleId,
   normalizeSubtitleItem,
 } from "@/lib/subtitles";
+import {
+  communityStyleKey,
+  toCustomSubtitleStyleConfig,
+  type CommunitySubtitleStyle,
+} from "@/lib/community-styles";
+import { supabase } from "@/lib/supabase/client";
+import { fetchEditorStyles } from "@/lib/supabase/styles";
 import { ProTimeline } from "@/components/timeline/ProTimeline";
 import { TypographyEditor } from "@/components/typography/TypographyEditor";
+import { AppSidebar } from "@/components/layout/AppSidebar";
+import { CommunityStylePreview } from "@/components/styles/CommunityStylePreview";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 
 const fps = 30;
@@ -47,7 +61,11 @@ export default function Home() {
   const [playing, setPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [activeTab, setActiveTab] = useState<"subtitles" | "style" | "settings">("subtitles");
-  const [styleId, setStyleId] = useState<SubtitleStyleId>("clean-minimal");
+  const [styleId, setStyleId] = useState<string>("clean-minimal");
+  const [authUser, setAuthUser] = useState<User | null>(null);
+  const [importedStyles, setImportedStyles] = useState<CommunitySubtitleStyle[]>([]);
+  const [styleLibraryLoading, setStyleLibraryLoading] = useState(false);
+  const [styleLibraryError, setStyleLibraryError] = useState<string | null>(null);
   const [typography, setTypography] = useState<TypographyOverrides>({});
   const [formatId, setFormatId] = useState<VideoFormatId>("landscape");
   const [background, setBackground] = useState<VideoBackground>("black");
@@ -66,6 +84,20 @@ export default function Home() {
     () => videoFormats.find((f) => f.id === formatId) ?? videoFormats[1],
     [formatId]
   );
+  const selectedCommunityStyle = useMemo(
+    () => importedStyles.find((style) => communityStyleKey(style.id) === styleId),
+    [importedStyles, styleId]
+  );
+  const renderStyleId: SubtitleStyleId = selectedCommunityStyle
+    ? selectedCommunityStyle.baseStyle
+    : isBuiltInSubtitleStyleId(styleId)
+      ? styleId
+      : "clean-minimal";
+  const customStyle = selectedCommunityStyle
+    ? toCustomSubtitleStyleConfig(selectedCommunityStyle)
+    : undefined;
+  const isCodeStyle = selectedCommunityStyle?.kind === "code";
+  const codeStyleSource = isCodeStyle ? selectedCommunityStyle?.code : undefined;
 
   // Robust duration: fallback when subtitles are empty
   const computedFrames = useMemo(
@@ -111,6 +143,52 @@ export default function Home() {
     };
   }, []);
 
+  useEffect(() => {
+    let mounted = true;
+
+    supabase.auth.getUser().then(({ data }) => {
+      if (mounted) setAuthUser(data.user);
+    });
+
+    const { data } = supabase.auth.onAuthStateChange((_event, session) => {
+      setAuthUser(session?.user ?? null);
+    });
+
+    return () => {
+      mounted = false;
+      data.subscription.unsubscribe();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!authUser) {
+      setImportedStyles([]);
+      setStyleLibraryError(null);
+      if (!isBuiltInSubtitleStyleId(styleId)) setStyleId("clean-minimal");
+      return;
+    }
+
+    let mounted = true;
+    setStyleLibraryLoading(true);
+    setStyleLibraryError(null);
+
+    fetchEditorStyles(authUser.id)
+      .then((styles) => {
+        if (mounted) setImportedStyles(styles);
+      })
+      .catch((error) => {
+        if (!mounted) return;
+        setStyleLibraryError(error instanceof Error ? error.message : "Unable to load styles");
+      })
+      .finally(() => {
+        if (mounted) setStyleLibraryLoading(false);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, [authUser]);
+
   // Close size menu on outside click
   useEffect(() => {
     if (!sizeMenuOpen) return;
@@ -155,7 +233,11 @@ export default function Home() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             text: sampleScript,
-            style: styleId,
+            style: renderStyleId,
+            customStyle,
+            code: codeStyleSource,
+            kind: isCodeStyle ? "code" : "settings",
+            typography,
             background: mode === "webm" ? "transparent" : background,
             subtitles,
             width: activeFormat.width,
@@ -210,7 +292,7 @@ export default function Home() {
         setExporting(null);
       }
     },
-    [exporting, styleId, background, subtitles, activeFormat]
+    [exporting, renderStyleId, customStyle, codeStyleSource, isCodeStyle, typography, background, subtitles, activeFormat]
   );
 
   function insertSubtitleAt(index: number) {
@@ -293,39 +375,7 @@ export default function Home() {
 
   return (
     <div className="flex h-screen bg-[#f8f9fa] text-slate-800 font-sans overflow-hidden">
-      {/* Sidebar */}
-      <aside className="hidden lg:flex w-[220px] border-r border-slate-200 bg-white flex-col py-5 shrink-0">
-        <div className="flex items-center gap-2.5 mb-8 px-5">
-          <div className="w-7 h-7 bg-indigo-600 text-white flex items-center justify-center rounded-md font-bold text-base">
-            S
-          </div>
-          <span className="text-lg font-bold">Speakzy</span>
-        </div>
-
-        <nav className="px-3 space-y-1">
-          <button className="flex items-center gap-2.5 w-full px-3 py-2 rounded-md text-slate-600 hover:bg-slate-50 transition-colors text-sm font-medium">
-            <Plus size={16} />
-            Add Video
-          </button>
-          <button className="flex items-center gap-2.5 w-full px-3 py-2 rounded-md bg-indigo-50 text-indigo-700 transition-colors text-sm font-medium">
-            <div className="w-4 h-4 flex items-center justify-center rounded bg-indigo-200 text-indigo-700 text-[9px] font-bold">
-              CC
-            </div>
-            Captions
-          </button>
-        </nav>
-
-        <div className="mt-auto px-3 space-y-1">
-          <button className="flex items-center gap-2.5 w-full px-3 py-2 rounded-md text-slate-600 hover:bg-slate-50 text-sm font-medium">
-            <Settings size={16} />
-            Settings
-          </button>
-          <button className="flex items-center gap-2.5 w-full px-3 py-2 rounded-md text-slate-600 hover:bg-slate-50 text-sm font-medium">
-            <LogOut size={16} />
-            Logout
-          </button>
-        </div>
-      </aside>
+      <AppSidebar />
 
       {/* Main */}
       <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
@@ -340,6 +390,20 @@ export default function Home() {
           </div>
 
           <div className="flex items-center gap-2">
+            <Link
+              href="/community"
+              className="hidden md:flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-slate-200 bg-white text-xs font-semibold text-slate-600 hover:bg-slate-50 transition-colors"
+            >
+              <Users size={13} />
+              Community
+            </Link>
+            <Link
+              href="/styles/code"
+              className="hidden md:flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-slate-200 bg-white text-xs font-semibold text-slate-600 hover:bg-slate-50 transition-colors"
+            >
+              <Code2 size={13} />
+              Create
+            </Link>
             <div className="relative" ref={exportMenuRef}>
               <button
                 onClick={() => setExportMenuOpen((o) => !o)}
@@ -428,21 +492,33 @@ export default function Home() {
               >
                 <Player
                   ref={playerRef}
-                  component={SubtitleVideo}
+                  component={isCodeStyle ? CodeStyleVideo : SubtitleVideo}
                   durationInFrames={durationInFrames}
                   fps={fps}
                   compositionWidth={activeFormat.width}
                   compositionHeight={activeFormat.height}
                   style={{ width: "100%", height: "100%" }}
-                  inputProps={{
-                    subtitles,
-                    style: styleId,
-                    background,
-                    text: sampleScript,
-                    width: activeFormat.width,
-                    height: activeFormat.height,
-                    typography,
-                  }}
+                  inputProps={
+                    isCodeStyle
+                      ? {
+                          subtitles,
+                          background,
+                          text: sampleScript,
+                          width: activeFormat.width,
+                          height: activeFormat.height,
+                          code: codeStyleSource,
+                        }
+                      : {
+                          subtitles,
+                          style: renderStyleId,
+                          customStyle,
+                          background,
+                          text: sampleScript,
+                          width: activeFormat.width,
+                          height: activeFormat.height,
+                          typography,
+                        }
+                  }
                   acknowledgeRemotionLicense
                 />
               </div>
@@ -531,8 +607,9 @@ export default function Home() {
                       <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide text-slate-400 border-b border-slate-100 bg-slate-50">
                         Canvas size
                       </div>
-                      <ul className="max-h-72 overflow-y-auto py-1">
-                        {videoFormats.map((f) => {
+                      <ScrollArea className="max-h-72">
+                        <ul className="py-1">
+                          {videoFormats.map((f) => {
                           const active = f.id === formatId;
                           return (
                             <li key={f.id}>
@@ -575,7 +652,8 @@ export default function Home() {
                             </li>
                           );
                         })}
-                      </ul>
+                        </ul>
+                      </ScrollArea>
                     </div>
                   )}
                   <button className="hover:text-slate-900 transition-colors hidden sm:block">
@@ -610,7 +688,8 @@ export default function Home() {
               </div>
 
               {activeTab === "subtitles" ? (
-                <div className="flex-1 overflow-y-auto px-3 py-2">
+                <ScrollArea className="flex-1 min-h-0">
+                  <div className="px-3 py-2">
                   {sortedSubs.length === 0 ? (
                     <div className="h-full min-h-[300px] flex flex-col items-center justify-center text-center px-6 gap-3">
                       <div className="w-12 h-12 rounded-full bg-indigo-50 text-indigo-500 flex items-center justify-center">
@@ -697,9 +776,17 @@ export default function Home() {
                       ))}
                     </>
                   )}
-                </div>
+                  </div>
+                </ScrollArea>
               ) : activeTab === "style" ? (
-                <StylePanel selected={styleId} onSelect={setStyleId} />
+                <StylePanel
+                  selected={styleId}
+                  onSelect={setStyleId}
+                  importedStyles={importedStyles}
+                  loadingImported={styleLibraryLoading}
+                  error={styleLibraryError}
+                  signedIn={!!authUser}
+                />
               ) : (
                 <SettingsPanel value={typography} onChange={setTypography} />
               )}
@@ -856,9 +943,17 @@ function InsertButton({ onClick }: { onClick: () => void }) {
 function StylePanel({
   selected,
   onSelect,
+  importedStyles,
+  loadingImported,
+  error,
+  signedIn,
 }: {
-  selected: SubtitleStyleId;
-  onSelect: (id: SubtitleStyleId) => void;
+  selected: string;
+  onSelect: (id: string) => void;
+  importedStyles: CommunitySubtitleStyle[];
+  loadingImported: boolean;
+  error: string | null;
+  signedIn: boolean;
 }) {
   return (
     <ScrollArea className="flex-1">
@@ -873,8 +968,22 @@ function StylePanel({
             </span>
           </div>
           <Badge variant="outline" className="text-[10px] font-bold">
-            {subtitleStyles.length}
+            {subtitleStyles.length + importedStyles.length}
           </Badge>
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <Button asChild variant="outline" size="sm" className="h-8 text-xs">
+            <Link href="/community">
+              <Users className="size-3" />
+              Browse
+            </Link>
+          </Button>
+          <Button asChild variant="outline" size="sm" className="h-8 text-xs">
+            <Link href="/styles/code">
+              <Code2 className="size-3" />
+              Create
+            </Link>
+          </Button>
         </div>
         <div className="grid grid-cols-2 gap-2">
           {subtitleStyles.map((s) => {
@@ -927,6 +1036,62 @@ function StylePanel({
               </Card>
             );
           })}
+        </div>
+
+        <Separator />
+
+        <div className="space-y-2">
+          <div className="flex items-center justify-between px-1">
+            <div>
+              <span className="text-[10px] uppercase tracking-wide font-bold text-muted-foreground block">
+                Imported
+              </span>
+              <span className="text-[10px] text-muted-foreground">
+                Community styles available in this editor
+              </span>
+            </div>
+            {loadingImported && (
+              <span className="text-[10px] font-semibold text-slate-400">
+                Loading
+              </span>
+            )}
+          </div>
+
+          {!signedIn ? (
+            <div className="rounded-md border border-dashed border-slate-200 bg-slate-50 px-3 py-3 text-center">
+              <p className="text-xs font-semibold text-slate-700">Sign in to keep imported styles</p>
+              <Button asChild size="sm" className="mt-2 h-8 text-xs">
+                <Link href="/auth">Sign in</Link>
+              </Button>
+            </div>
+          ) : error ? (
+            <p className="rounded-md border border-rose-100 bg-rose-50 px-3 py-2 text-xs text-rose-700">
+              {error}
+            </p>
+          ) : importedStyles.length === 0 && !loadingImported ? (
+            <div className="rounded-md border border-dashed border-slate-200 bg-slate-50 px-3 py-3 text-center">
+              <p className="text-xs font-semibold text-slate-700">No imported styles yet</p>
+              <p className="text-[10px] text-slate-500 mt-1">
+                Import one from the community or publish your own.
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-2">
+              {importedStyles.map((style) => {
+                const key = communityStyleKey(style.id);
+                return (
+                  <CommunityStylePreview
+                    key={style.id}
+                    style={style}
+                    compact
+                    active={selected === key}
+                    action="none"
+                    onClick={() => onSelect(key)}
+                  />
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
     </ScrollArea>
