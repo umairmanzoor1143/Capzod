@@ -79,7 +79,7 @@ function AuthPageContent() {
             <div className="mb-4 grid size-10 place-items-center rounded-xl bg-gradient-to-br from-indigo-600 to-indigo-700 text-white shadow-md shadow-indigo-600/25 ring-1 ring-white/15">
               <LockKeyhole size={20} />
             </div>
-            <h1 className="text-xl font-bold tracking-tight text-slate-900">Sign in to Speakzy</h1>
+            <h1 className="text-xl font-bold tracking-tight text-slate-900">Sign in to Capzod</h1>
             <p className="mt-1.5 text-sm leading-relaxed text-slate-500">
               Use Google or your X account. We use Supabase Auth — no passwords stored here.
             </p>
