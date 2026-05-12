@@ -2,11 +2,12 @@
 
 import * as React from "react";
 import dynamic from "next/dynamic";
-import {Check, Download, Loader2, Pencil, Play, Trash2} from "lucide-react";
+import {Check, Download, Eye, Loader2, Pencil, Play, Trash2} from "lucide-react";
 import {Badge} from "@/components/ui/badge";
 import {Button} from "@/components/ui/button";
 import {Card} from "@/components/ui/card";
 import type {CommunitySubtitleStyle} from "@/lib/community-styles";
+import {apiRecordStyleView} from "@/lib/api";
 import {cn} from "@/lib/utils";
 
 const StylePreviewSurface = dynamic(
@@ -48,9 +49,18 @@ export function StyleGalleryCard({
 }) {
   const [hovering, setHovering] = React.useState(false);
 
+  React.useEffect(() => {
+    if (typeof window === "undefined") return;
+    const key = `styleView:${style.id}`;
+    if (sessionStorage.getItem(key)) return;
+    void apiRecordStyleView(style.id).then((ok) => {
+      if (ok) sessionStorage.setItem(key, "1");
+    });
+  }, [style.id]);
+
   return (
     <Card
-      className="group relative overflow-hidden border-slate-200 bg-white p-0 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
+      className="group relative overflow-hidden border-slate-200/80 bg-white p-0 shadow-sm shadow-slate-900/[0.03] ring-1 ring-slate-900/[0.02] transition-[transform,box-shadow] hover:-translate-y-0.5 hover:shadow-float"
       onMouseEnter={() => setHovering(true)}
       onMouseLeave={() => setHovering(false)}
     >
@@ -90,7 +100,7 @@ export function StyleGalleryCard({
         </div>
 
         <div className="flex items-center justify-between gap-2 pt-1">
-          <Stats createdAt={style.createdAt} />
+          <Stats imports={style.importCount ?? 0} views={style.viewCount ?? 0} />
           <ActionButton action={action} />
         </div>
       </div>
@@ -98,39 +108,19 @@ export function StyleGalleryCard({
   );
 }
 
-function Stats({createdAt}: {createdAt: string}) {
-  const seed = new Date(createdAt).getTime();
-  const downloads = 100 + (seed % 4900);
-  const likes = 20 + (seed % 480);
+function Stats({views, imports}: {views: number; imports: number}) {
   const fmt = (n: number) => (n >= 1000 ? `${(n / 1000).toFixed(1)}K` : String(n));
   return (
     <div className="flex items-center gap-2.5 text-[11px] text-slate-500">
-      <span className="inline-flex items-center gap-1">
-        <Download className="size-3" />
-        {fmt(downloads)}
+      <span className="inline-flex items-center gap-1" title="Views">
+        <Eye className="size-3" />
+        {fmt(views)}
       </span>
-      <span className="inline-flex items-center gap-1">
-        <Heart />
-        {likes}
+      <span className="inline-flex items-center gap-1" title="Imports">
+        <Download className="size-3" />
+        {fmt(imports)}
       </span>
     </div>
-  );
-}
-
-function Heart() {
-  return (
-    <svg
-      width="11"
-      height="11"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
-    </svg>
   );
 }
 

@@ -48,6 +48,8 @@ export function StylePreviewSurface({
         width: W,
         height: H,
         code: style.code,
+        style: style.baseStyle,
+        customStyle: toCustomSubtitleStyleConfig(style),
       }
     : {
         subtitles,

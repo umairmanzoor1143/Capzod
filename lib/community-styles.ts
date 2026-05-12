@@ -29,6 +29,10 @@ export type CommunitySubtitleStyle = {
   importedAt?: string;
   imported?: boolean;
   mine?: boolean;
+  /** Distinct users who imported this style (from `subtitle_style_imports`). */
+  importCount?: number;
+  /** Recorded via `increment_style_view` when the style is opened in the app. */
+  viewCount?: number;
 };
 
 export type SubtitleStyleRow = {
@@ -45,6 +49,8 @@ export type SubtitleStyleRow = {
   author_name: string | null;
   created_at: string;
   updated_at: string | null;
+  import_count?: number | null;
+  view_count?: number | null;
 };
 
 export const communityStyleKey = (id: string) => `community:${id}`;
@@ -102,6 +108,9 @@ export function normalizeCommunityStyle(
     importedAt: options?.importedAt,
     imported: options?.imported,
     mine: options?.mine,
+    importCount:
+      typeof row.import_count === "number" ? row.import_count : 0,
+    viewCount: typeof row.view_count === "number" ? row.view_count : 0,
   };
 }
 

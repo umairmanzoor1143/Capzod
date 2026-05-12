@@ -67,22 +67,29 @@ export default function StyleApprovalsPage() {
   }
 
   if (authState === "checking") {
-    return (<div className="flex min-h-screen bg-slate-100 text-slate-800"><AppSidebar /><main className="flex-1 grid place-items-center"><Loader2 className="size-5 animate-spin text-slate-400" /></main></div>);
+    return (<div className="flex h-[100dvh] max-h-[100dvh] bg-gradient-to-br from-slate-50 via-white to-indigo-50/35 text-slate-800"><AppSidebar /><main className="flex min-h-0 flex-1 items-center justify-center pb-[calc(3.5rem+env(safe-area-inset-bottom,0px))] lg:pb-0"><Loader2 className="size-5 animate-spin text-slate-400" /></main></div>);
   }
   if (authState !== "admin") {
-    return (<div className="flex min-h-screen bg-slate-100"><main className="flex-1 grid place-items-center"><Loader2 className="size-5 animate-spin text-slate-400" /></main></div>);
+    return (<div className="flex min-h-[100dvh] bg-gradient-to-br from-slate-50 via-white to-indigo-50/35"><main className="flex flex-1 items-center justify-center pb-[calc(3.5rem+env(safe-area-inset-bottom,0px))] lg:pb-0"><Loader2 className="size-5 animate-spin text-slate-400" /></main></div>);
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-slate-100 text-slate-800">
+    <div className="flex h-[100dvh] max-h-[100dvh] overflow-hidden bg-gradient-to-br from-slate-50 via-white to-indigo-50/35 text-slate-800">
       <AppSidebar />
-      <main className="flex-1 min-w-0 flex flex-col">
-        <header className="h-[64px] border-b border-slate-200 bg-white flex items-center justify-between px-5 shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="size-8 rounded-md bg-indigo-50 text-indigo-700 grid place-items-center"><ShieldCheck className="size-4" /></div>
-            <div><h1 className="text-base font-bold leading-tight">Style Approvals</h1><p className="text-[11px] text-slate-500">Preview each submission and approve before publishing to community.</p></div>
+      <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden pb-[calc(3.5rem+env(safe-area-inset-bottom,0px))] lg:pb-0">
+        <header className="flex min-h-[64px] shrink-0 flex-wrap items-center justify-between gap-2 border-b border-slate-200/70 bg-white/85 px-4 py-3 shadow-[0_1px_0_rgba(15,23,42,0.04)] backdrop-blur-md sm:px-5 lg:h-16 lg:flex-nowrap lg:py-0">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="grid size-9 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-indigo-50 to-white text-indigo-700 shadow-sm ring-1 ring-indigo-100">
+              <ShieldCheck className="size-4" />
+            </div>
+            <div className="min-w-0">
+              <h1 className="text-base font-bold leading-tight tracking-tight text-slate-900">Style Approvals</h1>
+              <p className="text-[11px] leading-snug text-slate-500">
+                Preview each submission and approve before publishing to community.
+              </p>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex shrink-0 items-center gap-2">
             <Button type="button" variant="outline" size="sm" onClick={loadPending} disabled={loading} className="h-8 text-xs">
               {loading ? <Loader2 className="size-3 animate-spin" /> : <RefreshCcw className="size-3" />}Refresh
             </Button>
@@ -90,7 +97,7 @@ export default function StyleApprovalsPage() {
           </div>
         </header>
         {error && (<div className="mx-5 mt-3 rounded-md border border-rose-100 bg-rose-50 px-3 py-2 text-sm text-rose-700 shrink-0">{error}</div>)}
-        <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-[360px_minmax(0,1fr)] gap-3 p-3 overflow-hidden">
+        <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 overflow-hidden p-2 sm:p-3 lg:grid-cols-[360px_minmax(0,1fr)]">
           <Card className="rounded-lg border-slate-200 shadow-sm overflow-hidden flex flex-col min-h-0 p-0">
             <div className="h-10 px-4 border-b border-slate-100 flex items-center justify-between shrink-0"><span className="text-[12px] font-semibold text-slate-700">Pending ({styles.length})</span></div>
             <ScrollArea className="flex-1 min-h-0">
@@ -129,22 +136,27 @@ function PreviewPanel({style, onApprove, onReject, working}: {style: CommunitySu
   }, [style.id, style.kind, style.code]);
 
   return (
-    <div className="flex flex-col min-h-0 flex-1">
-      <div className="h-11 px-4 border-b border-slate-100 flex items-center justify-between shrink-0">
-        <div className="min-w-0"><div className="text-[13px] font-semibold text-slate-800 truncate">{style.name}</div><div className="text-[10px] text-slate-500">{style.kind === "code" ? "Code style" : "Settings style"} · by {style.authorName}</div></div>
-        <div className="flex items-center gap-2 shrink-0">
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-3 py-2 sm:px-4">
+        <div className="min-w-0">
+          <div className="truncate text-[13px] font-semibold text-slate-800">{style.name}</div>
+          <div className="text-[10px] text-slate-500">
+            {style.kind === "code" ? "Code style" : "Settings style"} · by {style.authorName}
+          </div>
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
           <Button type="button" size="sm" variant="outline" onClick={onReject} disabled={working} className="h-8 text-xs text-rose-700 border-rose-200 hover:bg-rose-50 hover:text-rose-800"><X className="size-3" />Reject</Button>
           <Button type="button" size="sm" onClick={onApprove} disabled={working} className="h-8 text-xs bg-emerald-600 hover:bg-emerald-700 text-white">{working ? <Loader2 className="size-3 animate-spin" /> : <Check className="size-3" />}Approve</Button>
         </div>
       </div>
-      <ScrollArea className="flex-1 min-h-0">
+      <ScrollArea className="min-h-0 flex-1">
         <div className="p-5 space-y-4">
-          <div className="rounded-md overflow-hidden bg-slate-950 border border-slate-800 aspect-video grid place-items-center">
+          <div className="relative aspect-video min-h-[200px] w-full max-w-full overflow-hidden rounded-md bg-slate-950 border border-slate-800">
             {style.kind === "code" ? (compileError ? (<div className="text-rose-300 text-xs font-mono p-4 max-w-full overflow-auto">Compile error: {compileError}</div>) : (
-              <Player ref={playerRef} component={CodeStyleVideo} durationInFrames={300} fps={30} compositionWidth={1280} compositionHeight={720} style={{width: "100%", height: "100%"}} inputProps={{text: sampleScript, background: "black", Component: Component ?? undefined}} controls loop acknowledgeRemotionLicense />
+              <Player ref={playerRef} component={CodeStyleVideo} durationInFrames={300} fps={30} compositionWidth={1280} compositionHeight={720} style={{position: "absolute", inset: 0, width: "100%", height: "100%"}} inputProps={{text: sampleScript, background: "black", Component: Component ?? undefined}} controls loop acknowledgeRemotionLicense />
             )) : (<div className="w-full p-6"><CommunityStylePreview style={style} action="none" /></div>)}
           </div>
-          <div className="grid grid-cols-2 gap-3 text-[12px]">
+          <div className="grid grid-cols-1 gap-3 text-[12px] sm:grid-cols-2">
             <Meta label="Status" value={style.status} /><Meta label="Kind" value={style.kind} />
             <Meta label="Base style" value={style.baseStyle} /><Meta label="Submitted" value={new Date(style.createdAt).toLocaleString()} />
           </div>
