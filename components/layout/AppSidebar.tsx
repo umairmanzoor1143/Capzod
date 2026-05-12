@@ -8,6 +8,7 @@ import { AuthStatus } from "@/components/auth/AuthStatus";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { apiCheckAdmin } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import Image from "next/image";
 
 const baseNavItems = [
   { href: "/", label: "Editor", icon: Captions },
@@ -52,10 +53,8 @@ export function AppSidebar() {
         aria-hidden
       />
       <Link href="/" className="mb-8 flex items-center gap-2.5 px-5 transition-opacity hover:opacity-90">
-        <div className="grid size-8 shrink-0 place-items-center rounded-lg bg-gradient-to-br from-indigo-600 to-indigo-700 text-sm font-bold text-white shadow-md shadow-indigo-600/25 ring-1 ring-white/20">
-          S
-        </div>
-        <span className="text-[17px] font-bold tracking-tight text-slate-900">Speakzy</span>
+      <Image src="/logo.png" alt="Speakzy" width={32} height={32} />
+        <span className="text-[17px] font-bold tracking-tight text-slate-900">Capzod</span>
       </Link>
 
       <nav className="flex flex-1 flex-col gap-0.5 px-3">
