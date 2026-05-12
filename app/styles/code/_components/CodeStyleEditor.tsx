@@ -4,7 +4,6 @@ import * as React from "react";
 import Link from "next/link";
 import {useRouter} from "next/navigation";
 import {Player, type PlayerRef} from "@remotion/player";
-import type {User} from "@supabase/supabase-js";
 import Editor from "react-simple-code-editor";
 import {highlight, languages} from "prismjs";
 import "prismjs/components/prism-clike";
@@ -38,8 +37,8 @@ import {ScrollArea} from "@/components/ui/scroll-area";
 import {sampleScript} from "@/lib/subtitles";
 import {compileStyleCode} from "@/lib/compile-style-code";
 import {CodeStyleVideo, type CodeStyleComponent} from "@/remotion/CodeStyleVideo";
-import {supabase} from "@/lib/supabase/client";
-import {createCommunityStyle, updateMyStyle} from "@/lib/supabase/styles";
+import {useAuth} from "@/components/auth/AuthProvider";
+import {apiCreateStyle, apiUpdateStyle} from "@/lib/api";
 import type {CommunitySubtitleStyle} from "@/lib/community-styles";
 import {cn} from "@/lib/utils";
 
@@ -171,8 +170,7 @@ export function CodeStyleEditor({mode, initialStyle}: CodeStyleEditorProps) {
   const TOTAL_FRAMES = 300;
   const FPS = 30;
 
-  const [user, setUser] = React.useState<User | null>(null);
-  const [authLoading, setAuthLoading] = React.useState(true);
+  const {user, loading: authLoading} = useAuth();
   const [publishing, setPublishing] = React.useState(false);
   const [publishError, setPublishError] = React.useState<string | null>(null);
   const [publishedStyle, setPublishedStyle] = React.useState<CommunitySubtitleStyle | null>(
@@ -220,23 +218,7 @@ export function CodeStyleEditor({mode, initialStyle}: CodeStyleEditorProps) {
     }
   }, [isEdit]);
 
-  // Auth
-  React.useEffect(() => {
-    let mounted = true;
-    supabase.auth.getUser().then(({data}) => {
-      if (!mounted) return;
-      setUser(data.user);
-      setAuthLoading(false);
-    });
-    const {data} = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-      setAuthLoading(false);
-    });
-    return () => {
-      mounted = false;
-      data.subscription.unsubscribe();
-    };
-  }, []);
+  // Auth is provided by AuthProvider context
 
   // Compile + persist code
   React.useEffect(() => {
@@ -376,7 +358,7 @@ export function CodeStyleEditor({mode, initialStyle}: CodeStyleEditorProps) {
 
     try {
       if (isEdit && initialStyle) {
-        const style = await updateMyStyle(initialStyle.id, {
+        const style = await apiUpdateStyle(initialStyle.id, {
           name: meta.name,
           description: meta.description,
           baseStyle: "clean-minimal",
@@ -393,8 +375,7 @@ export function CodeStyleEditor({mode, initialStyle}: CodeStyleEditorProps) {
           description: meta.description,
         };
       } else {
-        const style = await createCommunityStyle({
-          user,
+        const style = await apiCreateStyle({
           name: meta.name,
           description: meta.description,
           baseStyle: "clean-minimal",

@@ -1,6 +1,11 @@
-"use client";
+/**
+ * Server-side style operations.
+ *
+ * Every function receives a Supabase server client so it can only be called
+ * from Next.js API routes or Server Components – never from the browser.
+ */
 
-import type { User } from "@supabase/supabase-js";
+import type { SupabaseClient, User } from "@supabase/supabase-js";
 import {
   normalizeCommunityStyle,
   stylePayloadFromForm,
@@ -13,7 +18,6 @@ import type {
   SubtitleStyleId,
   TypographyOverrides,
 } from "@/lib/subtitles";
-import { supabase } from "@/lib/supabase/client";
 
 type ImportRow = {
   style_id: string;
@@ -21,16 +25,10 @@ type ImportRow = {
   subtitle_styles: SubtitleStyleRow | SubtitleStyleRow[] | null;
 };
 
-export async function getCurrentUser() {
-  const {
-    data: { user },
-    error,
-  } = await supabase.auth.getUser();
-  if (error) throw error;
-  return user;
-}
-
-export async function fetchApprovedStyles(userId?: string) {
+export async function fetchApprovedStyles(
+  supabase: SupabaseClient,
+  userId?: string
+) {
   const { data, error } = await supabase
     .from("subtitle_styles")
     .select("*")
@@ -39,7 +37,9 @@ export async function fetchApprovedStyles(userId?: string) {
 
   if (error) throw error;
 
-  const importedIds = userId ? await fetchImportedStyleIds(userId) : new Set<string>();
+  const importedIds = userId
+    ? await fetchImportedStyleIds(supabase, userId)
+    : new Set<string>();
   return ((data || []) as SubtitleStyleRow[]).map((row) =>
     normalizeCommunityStyle(row, {
       imported: importedIds.has(row.id),
@@ -48,10 +48,13 @@ export async function fetchApprovedStyles(userId?: string) {
   );
 }
 
-export async function fetchEditorStyles(userId: string) {
+export async function fetchEditorStyles(
+  supabase: SupabaseClient,
+  userId: string
+) {
   const [imported, mine] = await Promise.all([
-    fetchImportedStyles(userId),
-    fetchMyStyles(userId),
+    fetchImportedStyles(supabase, userId),
+    fetchMyStyles(supabase, userId),
   ]);
   const merged = new Map<string, CommunitySubtitleStyle>();
 
@@ -71,11 +74,15 @@ export async function fetchEditorStyles(userId: string) {
 
   return Array.from(merged.values()).sort(
     (a, b) =>
-      Date.parse(b.importedAt || b.createdAt) - Date.parse(a.importedAt || a.createdAt)
+      Date.parse(b.importedAt || b.createdAt) -
+      Date.parse(a.importedAt || a.createdAt)
   );
 }
 
-export async function fetchImportedStyles(userId: string) {
+export async function fetchImportedStyles(
+  supabase: SupabaseClient,
+  userId: string
+) {
   const { data, error } = await supabase
     .from("subtitle_style_imports")
     .select("style_id, imported_at, subtitle_styles(*)")
@@ -98,7 +105,10 @@ export async function fetchImportedStyles(userId: string) {
   });
 }
 
-export async function fetchMyStyles(userId: string) {
+export async function fetchMyStyles(
+  supabase: SupabaseClient,
+  userId: string
+) {
   const { data, error } = await supabase
     .from("subtitle_styles")
     .select("*")
@@ -115,7 +125,7 @@ export async function fetchMyStyles(userId: string) {
   );
 }
 
-export async function fetchPendingStyles() {
+export async function fetchPendingStyles(supabase: SupabaseClient) {
   const { data, error } = await supabase
     .from("subtitle_styles")
     .select("*")
@@ -129,7 +139,11 @@ export async function fetchPendingStyles() {
   );
 }
 
-export async function importCommunityStyle(styleId: string, userId: string) {
+export async function importCommunityStyle(
+  supabase: SupabaseClient,
+  styleId: string,
+  userId: string
+) {
   const { error } = await supabase.from("subtitle_style_imports").upsert(
     {
       style_id: styleId,
@@ -141,19 +155,24 @@ export async function importCommunityStyle(styleId: string, userId: string) {
   if (error) throw error;
 }
 
-export async function createCommunityStyle(input: {
-  user: User;
-  name: string;
-  description: string;
-  baseStyle: SubtitleStyleId;
-  typography: TypographyOverrides;
-  behavior?: SubtitleBehaviorOverrides;
-  kind?: "settings" | "code";
-  code?: string;
-}) {
+export async function createCommunityStyle(
+  supabase: SupabaseClient,
+  input: {
+    user: User;
+    name: string;
+    description: string;
+    baseStyle: SubtitleStyleId;
+    typography: TypographyOverrides;
+    behavior?: SubtitleBehaviorOverrides;
+    kind?: "settings" | "code";
+    code?: string;
+  }
+) {
   const payload = stylePayloadFromForm(input);
   const authorName =
-    getDisplayName(input.user) || input.user.email?.split("@")[0] || "Creator";
+    getDisplayName(input.user) ||
+    input.user.email?.split("@")[0] ||
+    "Creator";
 
   const { data, error } = await supabase
     .from("subtitle_styles")
@@ -168,7 +187,11 @@ export async function createCommunityStyle(input: {
 
   if (error) throw error;
 
-  await importCommunityStyle((data as SubtitleStyleRow).id, input.user.id);
+  await importCommunityStyle(
+    supabase,
+    (data as SubtitleStyleRow).id,
+    input.user.id
+  );
   return normalizeCommunityStyle(data as SubtitleStyleRow, {
     imported: true,
     mine: true,
@@ -176,6 +199,7 @@ export async function createCommunityStyle(input: {
 }
 
 export async function updateStyleStatus(
+  supabase: SupabaseClient,
   styleId: string,
   status: Extract<StyleApprovalStatus, "approved" | "rejected">
 ) {
@@ -195,6 +219,7 @@ export async function updateStyleStatus(
  * RLS enforces: owner only, status must transition into 'pending'.
  */
 export async function updateMyStyle(
+  supabase: SupabaseClient,
   styleId: string,
   input: {
     name: string;
@@ -225,7 +250,10 @@ export async function updateMyStyle(
  * Owner-side delete. RLS enforces owner-only.
  * Imports are removed via ON DELETE CASCADE on the foreign key.
  */
-export async function deleteMyStyle(styleId: string) {
+export async function deleteMyStyle(
+  supabase: SupabaseClient,
+  styleId: string
+) {
   const { error } = await supabase
     .from("subtitle_styles")
     .delete()
@@ -234,7 +262,10 @@ export async function deleteMyStyle(styleId: string) {
   if (error) throw error;
 }
 
-export async function isCurrentUserAdmin(userId: string): Promise<boolean> {
+export async function isCurrentUserAdmin(
+  supabase: SupabaseClient,
+  userId: string
+): Promise<boolean> {
   const { data, error } = await supabase
     .from("style_admins")
     .select("user_id")
@@ -248,14 +279,19 @@ export async function isCurrentUserAdmin(userId: string): Promise<boolean> {
   return Boolean(data);
 }
 
-export async function fetchImportedStyleIds(userId: string) {
+export async function fetchImportedStyleIds(
+  supabase: SupabaseClient,
+  userId: string
+) {
   const { data, error } = await supabase
     .from("subtitle_style_imports")
     .select("style_id")
     .eq("user_id", userId);
 
   if (error) throw error;
-  return new Set(((data || []) as { style_id: string }[]).map((row) => row.style_id));
+  return new Set(
+    ((data || []) as { style_id: string }[]).map((row) => row.style_id)
+  );
 }
 
 function getDisplayName(user: User) {

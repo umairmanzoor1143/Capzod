@@ -6,8 +6,8 @@ import {useParams, useRouter} from "next/navigation";
 import {Loader2} from "lucide-react";
 import {AppSidebar} from "@/components/layout/AppSidebar";
 import {Button} from "@/components/ui/button";
-import {supabase} from "@/lib/supabase/client";
-import {fetchMyStyles} from "@/lib/supabase/styles";
+import {useAuth} from "@/components/auth/AuthProvider";
+import {apiFetchMyStyles} from "@/lib/api";
 import type {CommunitySubtitleStyle} from "@/lib/community-styles";
 import {CodeStyleEditor} from "../_components/CodeStyleEditor";
 
@@ -15,6 +15,7 @@ export default function EditCodeStylePage() {
   const params = useParams<{id: string}>();
   const router = useRouter();
   const id = params?.id;
+  const {user, loading: authLoading} = useAuth();
 
   const [state, setState] = React.useState<
     | {status: "loading"}
@@ -24,18 +25,16 @@ export default function EditCodeStylePage() {
   >({status: "loading"});
 
   React.useEffect(() => {
+    if (authLoading) return;
     let mounted = true;
     if (!id) return;
     (async () => {
-      const {data} = await supabase.auth.getUser();
-      if (!mounted) return;
-      const user = data.user;
       if (!user) {
-        setState({status: "anonymous"});
+        if (mounted) setState({status: "anonymous"});
         return;
       }
       try {
-        const list = await fetchMyStyles(user.id);
+        const list = await apiFetchMyStyles();
         if (!mounted) return;
         const style = list.find((s) => s.id === id && s.kind === "code");
         if (!style) {
@@ -51,7 +50,7 @@ export default function EditCodeStylePage() {
     return () => {
       mounted = false;
     };
-  }, [id]);
+  }, [id, user, authLoading]);
 
   if (state.status === "loading") {
     return (

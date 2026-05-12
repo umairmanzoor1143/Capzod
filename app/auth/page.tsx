@@ -7,10 +7,11 @@ import { ArrowLeft, Loader2, LockKeyhole, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { supabase } from "@/lib/supabase/client";
+import { useAuth } from "@/components/auth/AuthProvider";
 
 export default function AuthPage() {
   const router = useRouter();
+  const { signIn, signUp } = useAuth();
   const [mode, setMode] = React.useState<"signin" | "signup">("signin");
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
@@ -32,22 +33,14 @@ export default function AuthPage() {
 
     try {
       if (mode === "signin") {
-        const { error: signInError } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
-        if (signInError) throw signInError;
+        await signIn(email, password);
         router.push(redirectTo);
         return;
       }
 
-      const { data, error: signUpError } = await supabase.auth.signUp({
-        email,
-        password,
-      });
-      if (signUpError) throw signUpError;
+      const { hasSession } = await signUp(email, password);
 
-      if (data.session) {
+      if (hasSession) {
         router.push(redirectTo);
       } else {
         setMessage("Account created. Check your email to confirm the sign up.");

@@ -2,34 +2,12 @@
 
 import * as React from "react";
 import Link from "next/link";
-import type { User } from "@supabase/supabase-js";
 import { LogOut, UserRound } from "lucide-react";
-import { supabase } from "@/lib/supabase/client";
+import { useAuth } from "@/components/auth/AuthProvider";
 import { cn } from "@/lib/utils";
 
 export function AuthStatus({ compact = false }: { compact?: boolean }) {
-  const [user, setUser] = React.useState<User | null>(null);
-  const [loading, setLoading] = React.useState(true);
-
-  React.useEffect(() => {
-    let mounted = true;
-
-    supabase.auth.getUser().then(({ data }) => {
-      if (!mounted) return;
-      setUser(data.user);
-      setLoading(false);
-    });
-
-    const { data } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-      setLoading(false);
-    });
-
-    return () => {
-      mounted = false;
-      data.subscription.unsubscribe();
-    };
-  }, []);
+  const { user, loading, signOut } = useAuth();
 
   if (loading) {
     return (
@@ -65,7 +43,7 @@ export function AuthStatus({ compact = false }: { compact?: boolean }) {
         </div>
       )}
       <button
-        onClick={() => supabase.auth.signOut()}
+        onClick={() => signOut()}
         className={cn(
           "flex items-center gap-2 w-full rounded-md text-slate-600 hover:bg-slate-50 text-sm font-medium transition-colors",
           compact ? "h-8 px-2 text-xs justify-center" : "px-3 py-2"

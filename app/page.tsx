@@ -2,7 +2,7 @@
 import React, { useState, useMemo, useRef, useCallback, useEffect } from "react";
 import Link from "next/link";
 import { Player, PlayerRef } from "@remotion/player";
-import type { User } from "@supabase/supabase-js";
+import { useAuth } from "@/components/auth/AuthProvider";
 import {
   Play, Pause, Plus, Trash2, Download,
   SkipBack, SkipForward, Maximize2, Check, ChevronDown, Sliders, Sparkles, Wand2,
@@ -29,8 +29,7 @@ import {
   toCustomSubtitleStyleConfig,
   type CommunitySubtitleStyle,
 } from "@/lib/community-styles";
-import { supabase } from "@/lib/supabase/client";
-import { fetchEditorStyles } from "@/lib/supabase/styles";
+import { apiFetchEditorStyles } from "@/lib/api";
 import { ProTimeline } from "@/components/timeline/ProTimeline";
 import { TypographyEditor } from "@/components/typography/TypographyEditor";
 import { AppSidebar } from "@/components/layout/AppSidebar";
@@ -62,7 +61,7 @@ export default function Home() {
   const [currentTime, setCurrentTime] = useState(0);
   const [activeTab, setActiveTab] = useState<"subtitles" | "style" | "settings">("subtitles");
   const [styleId, setStyleId] = useState<string>("clean-minimal");
-  const [authUser, setAuthUser] = useState<User | null>(null);
+  const { user: authUser } = useAuth();
   const [importedStyles, setImportedStyles] = useState<CommunitySubtitleStyle[]>([]);
   const [styleLibraryLoading, setStyleLibraryLoading] = useState(false);
   const [styleLibraryError, setStyleLibraryError] = useState<string | null>(null);
@@ -143,22 +142,7 @@ export default function Home() {
     };
   }, []);
 
-  useEffect(() => {
-    let mounted = true;
-
-    supabase.auth.getUser().then(({ data }) => {
-      if (mounted) setAuthUser(data.user);
-    });
-
-    const { data } = supabase.auth.onAuthStateChange((_event, session) => {
-      setAuthUser(session?.user ?? null);
-    });
-
-    return () => {
-      mounted = false;
-      data.subscription.unsubscribe();
-    };
-  }, []);
+  // Auth is provided by AuthProvider context
 
   useEffect(() => {
     if (!authUser) {
@@ -172,7 +156,7 @@ export default function Home() {
     setStyleLibraryLoading(true);
     setStyleLibraryError(null);
 
-    fetchEditorStyles(authUser.id)
+    apiFetchEditorStyles()
       .then((styles) => {
         if (mounted) setImportedStyles(styles);
       })

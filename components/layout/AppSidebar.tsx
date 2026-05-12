@@ -5,8 +5,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Captions, Code2, ShieldCheck, Users } from "lucide-react";
 import { AuthStatus } from "@/components/auth/AuthStatus";
-import { supabase } from "@/lib/supabase/client";
-import { isCurrentUserAdmin } from "@/lib/supabase/styles";
+import { useAuth } from "@/components/auth/AuthProvider";
+import { apiCheckAdmin } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 const baseNavItems = [
@@ -23,31 +23,25 @@ const adminNavItem = {
 
 export function AppSidebar() {
   const pathname = usePathname();
+  const { user } = useAuth();
   const [isAdmin, setIsAdmin] = React.useState(false);
 
   React.useEffect(() => {
     let mounted = true;
 
-    async function check(userId: string | null) {
-      if (!userId) {
-        if (mounted) setIsAdmin(false);
-        return;
-      }
-      const admin = await isCurrentUserAdmin(userId);
-      if (mounted) setIsAdmin(admin);
+    if (!user) {
+      setIsAdmin(false);
+      return;
     }
 
-    supabase.auth.getUser().then(({ data }) => check(data.user?.id ?? null));
-
-    const { data } = supabase.auth.onAuthStateChange((_event, session) => {
-      check(session?.user?.id ?? null);
+    apiCheckAdmin().then((admin) => {
+      if (mounted) setIsAdmin(admin);
     });
 
     return () => {
       mounted = false;
-      data.subscription.unsubscribe();
     };
-  }, []);
+  }, [user]);
 
   const navItems = isAdmin ? [...baseNavItems, adminNavItem] : baseNavItems;
 
