@@ -266,17 +266,22 @@ export async function isCurrentUserAdmin(
   supabase: SupabaseClient,
   userId: string
 ): Promise<boolean> {
-  const { data, error } = await supabase
+  const { data: adminRow, error: adminErr } = await supabase
     .from("style_admins")
     .select("user_id")
     .eq("user_id", userId)
     .maybeSingle();
-  if (error) {
-    // RLS would let an admin read their row; non-admins get an empty result, not an error.
-    // Treat any error as "not admin" rather than throwing.
+  if (!adminErr && adminRow) return true;
+
+  const { data: profile, error: profileErr } = await supabase
+    .from("user_profiles")
+    .select("is_admin")
+    .eq("id", userId)
+    .maybeSingle();
+  if (profileErr) {
     return false;
   }
-  return Boolean(data);
+  return Boolean(profile?.is_admin);
 }
 
 export async function fetchImportedStyleIds(

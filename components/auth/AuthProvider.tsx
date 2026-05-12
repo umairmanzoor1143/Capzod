@@ -1,13 +1,15 @@
 "use client";
 
 import * as React from "react";
-import { apiGetUser, apiSignIn, apiSignUp, apiSignOut, type AuthUser } from "@/lib/api";
+import { apiGetUser, apiSignOut, type AuthUser } from "@/lib/api";
+import { createBrowserSupabaseClient } from "@/lib/supabase/browser";
+
+export type OAuthProviderId = "google" | "twitter";
 
 type AuthContextValue = {
   user: AuthUser | null;
   loading: boolean;
-  signIn: (email: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string) => Promise<{ hasSession: boolean }>;
+  signInWithOAuth: (provider: OAuthProviderId, redirectTo?: string) => Promise<void>;
   signOut: () => Promise<void>;
   refreshUser: () => Promise<void>;
 };
@@ -35,7 +37,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  // Fetch user on mount
   React.useEffect(() => {
     let mounted = true;
     apiGetUser()
@@ -53,21 +54,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  const signIn = React.useCallback(
-    async (email: string, password: string) => {
-      const u = await apiSignIn(email, password);
-      setUser(u);
-    },
-    []
-  );
+  React.useEffect(() => {
+    let subscription: { unsubscribe: () => void } | undefined;
+    try {
+      const supabase = createBrowserSupabaseClient();
+      const {
+        data: { subscription: sub },
+      } = supabase.auth.onAuthStateChange(() => {
+        void refreshUser();
+      });
+      subscription = sub;
+    } catch {
+      // Missing env during local static analysis — skip listener.
+    }
+    return () => subscription?.unsubscribe();
+  }, [refreshUser]);
 
-  const signUp = React.useCallback(
-    async (email: string, password: string) => {
-      const result = await apiSignUp(email, password);
-      if (result.hasSession) {
-        setUser(result.user);
-      }
-      return { hasSession: result.hasSession };
+  const signInWithOAuth = React.useCallback(
+    async (provider: OAuthProviderId, redirectTo = "/") => {
+      const safe = redirectTo.startsWith("/") && !redirectTo.startsWith("//") ? redirectTo : "/";
+      const supabase = createBrowserSupabaseClient();
+      const origin = window.location.origin;
+      const callback = `${origin}/auth/callback?next=${encodeURIComponent(safe)}`;
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider,
+        options: {
+          redirectTo: callback,
+          skipBrowserRedirect: false,
+        },
+      });
+      if (error) throw error;
     },
     []
   );
@@ -78,8 +94,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const value = React.useMemo<AuthContextValue>(
-    () => ({ user, loading, signIn, signUp, signOut, refreshUser }),
-    [user, loading, signIn, signUp, signOut, refreshUser]
+    () => ({ user, loading, signInWithOAuth, signOut, refreshUser }),
+    [user, loading, signInWithOAuth, signOut, refreshUser]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

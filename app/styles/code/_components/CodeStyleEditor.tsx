@@ -45,10 +45,12 @@ import {cn} from "@/lib/utils";
 const STORAGE_KEY = "speakzy:code-style:draft";
 const META_STORAGE_KEY = "speakzy:code-style:meta";
 
-const STARTER_CODE = `// Receives { chunk, activeWordIndex, words, frame, fps, localFrame }
+const STARTER_CODE = `// Receives { chunk, activeWordIndex, words, frame, fps, localFrame, styleProps }
+// Use styleProps.typography for font settings from the studio (merged with your style).
 // Use React + Remotion (interpolate, spring, useCurrentFrame, AbsoluteFill).
 
-function MyCaption({ chunk, activeWordIndex, words, localFrame, fps }) {
+function MyCaption({ chunk, activeWordIndex, words, localFrame, fps, styleProps }) {
+  const typo = styleProps?.typography || {};
   const enter = spring({
     frame: localFrame,
     fps,
@@ -61,7 +63,7 @@ function MyCaption({ chunk, activeWordIndex, words, localFrame, fps }) {
         {words.map((word, i) => {
           const active = i === activeWordIndex;
           const scale = active ? 1.15 : 1;
-          const color = active ? "#A855F7" : "#FFFFFF";
+          const color = active ? (typo.accent || "#A855F7") : (typo.color || "#FFFFFF");
           return (
             <span
               key={i}
@@ -70,10 +72,12 @@ function MyCaption({ chunk, activeWordIndex, words, localFrame, fps }) {
                 transform: \`scale(\${scale})\`,
                 opacity: enter,
                 color,
-                fontFamily: "Inter, system-ui, sans-serif",
-                fontWeight: 800,
-                fontSize: 140,
-                letterSpacing: "-0.02em",
+                fontFamily: typo.fontFamily || "Inter, system-ui, sans-serif",
+                fontWeight: typo.fontWeight != null ? typo.fontWeight : 800,
+                fontSize: typo.fontSize != null ? typo.fontSize : 140,
+                letterSpacing:
+                  typo.letterSpacing != null ? typo.letterSpacing : "-0.02em",
+                textTransform: typo.textTransform || "none",
                 transition: "transform 0.15s ease, color 0.15s ease",
                 textShadow: active
                   ? "0 0 24px #A855F780, 0 0 8px #A855F740"
@@ -415,59 +419,61 @@ export function CodeStyleEditor({mode, initialStyle}: CodeStyleEditorProps) {
     publishing || Boolean(error) || !user || (isEdit && !dirty);
 
   return (
-    <div className="flex h-screen overflow-hidden bg-slate-50 text-slate-800">
+    <div className="flex h-[100dvh] max-h-[100dvh] overflow-hidden bg-gradient-to-br from-slate-50 via-white to-indigo-50/35 text-slate-800">
       <AppSidebar />
 
-      <main className="flex-1 min-w-0 flex flex-col h-screen">
+      <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden pb-[calc(3.5rem+env(safe-area-inset-bottom,0px))] lg:pb-0">
         {/* Header */}
-        <header className="h-14 border-b border-slate-200 bg-white flex items-center justify-between px-5 shrink-0">
-          <div className="flex items-center gap-3 min-w-0">
+        <header className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-slate-200 bg-white px-3 py-2 sm:px-5 lg:h-14 lg:flex-nowrap lg:py-0">
+          <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
             <Link
               href="/styles/code"
-              className="inline-flex items-center gap-1.5 text-[12px] text-slate-500 hover:text-slate-800"
+              className="inline-flex shrink-0 items-center gap-1.5 text-[12px] text-slate-500 hover:text-slate-800"
             >
               <ArrowLeft className="size-3.5" />
-              My Styles
+              <span className="hidden sm:inline">My Styles</span>
             </Link>
-            <div className="text-slate-300">·</div>
-            <div className="flex items-center gap-2 text-slate-700 min-w-0">
-              <Code2 className="size-4 text-indigo-600" />
-              <span className="text-[15px] font-semibold truncate">
+            <div className="hidden text-slate-300 sm:block">·</div>
+            <div className="flex min-w-0 items-center gap-2 text-slate-700">
+              <Code2 className="size-4 shrink-0 text-indigo-600" />
+              <span className="truncate text-[14px] font-semibold sm:text-[15px]">
                 {isEdit ? `Editing: ${meta.name}` : "New Style"}
               </span>
             </div>
           </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <Button variant="outline" size="sm" onClick={requestFullscreen}>
+          <div className="flex w-full shrink-0 flex-wrap items-center justify-end gap-2 sm:w-auto sm:flex-nowrap">
+            <Button variant="outline" size="sm" onClick={requestFullscreen} className="h-8 text-xs sm:h-9">
               <Maximize2 className="size-3.5" />
-              Preview Fullscreen
+              <span className="hidden sm:inline">Preview Fullscreen</span>
             </Button>
             {!isEdit && (
-              <Button variant="outline" size="sm" onClick={handleSaveDraft}>
+              <Button variant="outline" size="sm" onClick={handleSaveDraft} className="h-8 text-xs sm:h-9">
                 <Save className="size-3.5" />
-                {draftSaved ? "Saved" : "Save Draft"}
+                <span className="hidden sm:inline">{draftSaved ? "Saved" : "Save Draft"}</span>
               </Button>
             )}
             <Button
               size="sm"
               onClick={handlePublish}
               disabled={publishDisabled}
-              className="bg-gradient-to-r from-indigo-600 to-fuchsia-600 hover:from-indigo-700 hover:to-fuchsia-700 text-white disabled:opacity-50"
+              className="h-8 bg-gradient-to-r from-indigo-600 to-fuchsia-600 text-xs text-white hover:from-indigo-700 hover:to-fuchsia-700 disabled:opacity-50 sm:h-9 sm:text-sm"
             >
               {publishing ? (
                 <Loader2 className="size-3.5 animate-spin" />
               ) : (
                 <Send className="size-3.5" />
               )}
-              {isEdit ? (dirty ? "Resubmit" : "No changes") : "Publish Style"}
+              <span className="hidden sm:inline">{isEdit ? (dirty ? "Resubmit" : "No changes") : "Publish Style"}</span>
+              <span className="sm:hidden">{isEdit ? (dirty ? "Submit" : "OK") : "Publish"}</span>
             </Button>
           </div>
         </header>
 
-        {/* Body */}
-        <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)_300px] gap-3 p-3 overflow-hidden">
+        {/* Body: mobile = 50/50 code + preview (equal flex), then metadata; lg = 3-column grid */}
+        <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden p-2 sm:gap-3 sm:p-3 lg:grid lg:min-h-0 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)_300px] lg:overflow-hidden">
+          <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden lg:contents">
           {/* LEFT: code editor */}
-          <section className="min-h-0 flex flex-col rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+          <section className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm lg:min-h-0">
             <div className="h-11 px-4 border-b border-slate-100 flex items-center justify-between shrink-0">
               <h2 className="text-sm font-semibold text-slate-800">Style Component</h2>
               <span className="text-[10px] font-mono uppercase tracking-wider text-slate-500 bg-slate-100 px-2 py-0.5 rounded">
@@ -496,8 +502,8 @@ export function CodeStyleEditor({mode, initialStyle}: CodeStyleEditorProps) {
               />
             </div>
 
-            <div className="h-9 px-4 border-t border-slate-200 bg-white text-[11px] text-slate-500 flex items-center justify-between shrink-0">
-              <div className="flex items-center gap-3">
+            <div className="flex min-h-9 flex-wrap items-center justify-between gap-x-2 gap-y-1 border-t border-slate-200 bg-white px-3 py-1.5 text-[11px] text-slate-500 sm:h-9 sm:flex-nowrap sm:px-4">
+              <div className="flex min-w-0 flex-wrap items-center gap-2 sm:gap-3">
                 <button
                   type="button"
                   onClick={() => {
@@ -505,10 +511,10 @@ export function CodeStyleEditor({mode, initialStyle}: CodeStyleEditorProps) {
                     if (r.ok) setError(null);
                     else setError(r.error);
                   }}
-                  className="inline-flex items-center gap-1.5 hover:text-slate-700"
+                  className="inline-flex shrink-0 items-center gap-1.5 hover:text-slate-700"
                 >
                   <AlertCircle className="size-3.5" />
-                  Check for errors
+                  <span className="hidden sm:inline">Check for errors</span>
                 </button>
                 <span className="flex items-center gap-1.5">
                   {error ? (
@@ -524,7 +530,7 @@ export function CodeStyleEditor({mode, initialStyle}: CodeStyleEditorProps) {
                   )}
                 </span>
               </div>
-              <div className="flex items-center gap-3">
+              <div className="hidden shrink-0 items-center gap-3 sm:flex">
                 <span>Spaces: 2</span>
                 <span>TypeScript React</span>
               </div>
@@ -539,7 +545,7 @@ export function CodeStyleEditor({mode, initialStyle}: CodeStyleEditorProps) {
           </section>
 
           {/* CENTER: preview */}
-          <section className="min-h-0 flex flex-col gap-3 overflow-hidden">
+          <section className="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden lg:min-h-0">
             <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden flex flex-col flex-1 min-h-0">
               <div className="px-4 h-11 border-b border-slate-100 flex items-center justify-between shrink-0">
                 <div className="flex items-center gap-2 text-sm font-semibold text-slate-800">
@@ -552,7 +558,7 @@ export function CodeStyleEditor({mode, initialStyle}: CodeStyleEditorProps) {
               </div>
 
               <div
-                className={cn("p-3 flex-1 min-h-0 flex items-center justify-center")}
+                className="relative flex-1 min-h-0 w-full"
                 style={{
                   backgroundColor: "#ffffff",
                   backgroundImage:
@@ -561,21 +567,7 @@ export function CodeStyleEditor({mode, initialStyle}: CodeStyleEditorProps) {
                   backgroundPosition: "0 0, 0 8px, 8px -8px, -8px 0px",
                 }}
               >
-                <div
-                  className="overflow-hidden rounded-md border border-white/10 shadow-inner"
-                  style={{
-                    aspectRatio:
-                      format === "landscape"
-                        ? "16 / 9"
-                        : format === "portrait"
-                          ? "9 / 16"
-                          : "1 / 1",
-                    maxWidth: "100%",
-                    maxHeight: "100%",
-                    width: format === "landscape" ? "100%" : "auto",
-                    height: format === "landscape" ? "auto" : "100%",
-                  }}
-                >
+                <div className="absolute inset-2 overflow-hidden rounded-md border border-slate-200/80 shadow-inner sm:inset-3">
                   <Player
                     ref={playerRef}
                     key={`${format}-${transparent}-${Component ? "ok" : "fb"}`}
@@ -584,7 +576,7 @@ export function CodeStyleEditor({mode, initialStyle}: CodeStyleEditorProps) {
                     fps={FPS}
                     compositionWidth={fmt.w}
                     compositionHeight={fmt.h}
-                    style={{width: "100%", height: "100%"}}
+                    style={{position: "absolute", inset: 0, width: "100%", height: "100%"}}
                     inputProps={{
                       text: sampleScript,
                       background: transparent ? "transparent" : "black",
@@ -596,8 +588,8 @@ export function CodeStyleEditor({mode, initialStyle}: CodeStyleEditorProps) {
                 </div>
               </div>
 
-              <div className="px-4 py-2.5 border-t border-slate-100 flex items-center gap-3 shrink-0">
-                <span className="text-[11px] font-mono text-slate-500 tabular-nums w-[88px]">
+              <div className="flex shrink-0 flex-col gap-2 border-t border-slate-100 px-3 py-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3 sm:px-4">
+                <span className="w-full font-mono text-[11px] text-slate-500 tabular-nums sm:w-auto sm:min-w-[88px]">
                   {formatTime(currentSecond)} / {formatTime(totalSecond)}
                 </span>
                 <div className="flex items-center gap-1">
@@ -621,43 +613,55 @@ export function CodeStyleEditor({mode, initialStyle}: CodeStyleEditorProps) {
                   max={TOTAL_FRAMES - 1}
                   value={frame}
                   onChange={(e) => seekAbs(Number(e.target.value))}
-                  className="flex-1 accent-indigo-600"
+                  className="min-w-0 flex-1 accent-indigo-600"
                 />
-                <Selectish
-                  value={fmt.label}
-                  options={Object.values(FORMATS).map((f) => f.label)}
-                  onChange={(v) => {
-                    const id = (Object.keys(FORMATS) as FormatId[]).find(
-                      (k) => FORMATS[k].label === v
-                    );
-                    if (id) setFormat(id);
-                  }}
-                  compact
-                />
-                <button
-                  type="button"
-                  onClick={() => setTransparent((t) => !t)}
-                  className={cn(
-                    "h-7 px-2.5 rounded-md border text-[11px] font-medium inline-flex items-center gap-1.5 transition-colors",
-                    transparent
-                      ? "bg-indigo-50 border-indigo-200 text-indigo-700"
-                      : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
-                  )}
-                >
-                  <span
-                    className={cn(
-                      "size-2 rounded-full",
-                      transparent ? "bg-indigo-500" : "bg-slate-300"
-                    )}
+                <div className="flex min-w-0 flex-1 flex-wrap items-center justify-center gap-2 sm:flex-1 sm:flex-nowrap sm:justify-end">
+                  <div className="flex min-h-[32px] min-w-0 flex-1 items-stretch overflow-hidden rounded-md border border-slate-200 text-[10px] font-semibold sm:max-w-[200px] sm:flex-none">
+                    <button
+                      type="button"
+                      onClick={() => setTransparent(false)}
+                      className={cn(
+                        "min-w-0 flex-1 px-2 py-1.5 transition-colors sm:py-1",
+                        !transparent
+                          ? "bg-slate-900 text-white"
+                          : "bg-white text-slate-500 hover:bg-slate-50"
+                      )}
+                    >
+                      Black
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setTransparent(true)}
+                      className={cn(
+                        "min-w-0 flex-1 border-l border-slate-200 px-2 py-1.5 transition-colors sm:py-1",
+                        transparent
+                          ? "bg-indigo-600 text-white"
+                          : "bg-white text-slate-500 hover:bg-slate-50"
+                      )}
+                    >
+                      <span className="sm:hidden">Trans</span>
+                      <span className="hidden sm:inline">Transparent</span>
+                    </button>
+                  </div>
+                  <Selectish
+                    value={fmt.label}
+                    options={Object.values(FORMATS).map((f) => f.label)}
+                    onChange={(v) => {
+                      const id = (Object.keys(FORMATS) as FormatId[]).find(
+                        (k) => FORMATS[k].label === v
+                      );
+                      if (id) setFormat(id);
+                    }}
+                    compact
                   />
-                  Transparent
-                </button>
+                </div>
               </div>
             </div>
           </section>
 
+          </div>
           {/* RIGHT: Metadata */}
-          <aside className="min-h-0 rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden flex flex-col">
+          <aside className="flex min-h-0 max-h-[38dvh] flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm sm:max-h-[42dvh] lg:max-h-none lg:min-h-0">
             <div className="h-11 px-4 border-b border-slate-100 flex items-center justify-between shrink-0">
               <h3 className="text-sm font-semibold text-slate-800">
                 {isEdit ? "Editing" : "Metadata"}

@@ -46,15 +46,19 @@ export function AppSidebar() {
   const navItems = isAdmin ? [...baseNavItems, adminNavItem] : baseNavItems;
 
   return (
-    <aside className="hidden lg:flex w-[220px] border-r border-slate-200 bg-white flex-col py-5 shrink-0">
-      <Link href="/" className="flex items-center gap-2.5 mb-8 px-5">
-        <div className="w-7 h-7 bg-indigo-600 text-white flex items-center justify-center rounded-md font-bold text-base">
+    <aside className="relative hidden w-[224px] shrink-0 flex-col border-r border-slate-200/70 bg-gradient-to-b from-white via-white to-slate-50/90 py-6 lg:flex">
+      <div
+        className="pointer-events-none absolute inset-y-0 right-0 w-px bg-gradient-to-b from-transparent via-slate-200/60 to-transparent"
+        aria-hidden
+      />
+      <Link href="/" className="mb-8 flex items-center gap-2.5 px-5 transition-opacity hover:opacity-90">
+        <div className="grid size-8 shrink-0 place-items-center rounded-lg bg-gradient-to-br from-indigo-600 to-indigo-700 text-sm font-bold text-white shadow-md shadow-indigo-600/25 ring-1 ring-white/20">
           S
         </div>
-        <span className="text-lg font-bold text-slate-900">Speakzy</span>
+        <span className="text-[17px] font-bold tracking-tight text-slate-900">Speakzy</span>
       </Link>
 
-      <nav className="px-3 space-y-1">
+      <nav className="flex flex-1 flex-col gap-0.5 px-3">
         {navItems.map((item) => {
           const active =
             item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
@@ -65,20 +69,20 @@ export function AppSidebar() {
               key={item.href}
               href={item.href}
               className={cn(
-                "flex items-center gap-2.5 w-full px-3 py-2 rounded-md transition-colors text-sm font-medium",
+                "flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-[13px] font-semibold transition-[background,box-shadow,color]",
                 active
-                  ? "bg-indigo-50 text-indigo-700"
-                  : "text-slate-600 hover:bg-slate-50"
+                  ? "bg-white text-indigo-700 shadow-sm shadow-slate-900/[0.04] ring-1 ring-slate-200/80"
+                  : "text-slate-600 hover:bg-slate-100/80 hover:text-slate-900"
               )}
             >
-              <Icon size={16} />
+              <Icon size={17} strokeWidth={active ? 2.25 : 2} className="shrink-0 opacity-90" />
               {item.label}
             </Link>
           );
         })}
       </nav>
 
-      <div className="mt-auto px-3">
+      <div className="mt-auto border-t border-slate-200/60 px-3 pt-4">
         <AuthStatus />
       </div>
     </aside>

@@ -24,7 +24,6 @@ const TABS: {id: TabId; label: string; icon: React.ComponentType<{className?: st
   {id: "all", label: "All Styles", icon: Sparkles},
   {id: "trending", label: "Trending", icon: TrendingUp},
   {id: "new", label: "New", icon: Plus},
-  {id: "liked", label: "Most Liked", icon: HeartIcon},
 ];
 
 const SORT_OPTIONS: {id: SortId; label: string}[] = [
@@ -116,40 +115,50 @@ export default function CommunityPage() {
   const pageItems = visible.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   return (
-    <div className="flex h-screen overflow-hidden bg-slate-100 text-slate-800">
+    <div className="flex h-[100dvh] max-h-[100dvh] overflow-hidden bg-gradient-to-br from-slate-50 via-white to-indigo-50/35 text-slate-800">
       <AppSidebar />
-      <main className="flex-1 min-w-0 flex flex-col h-screen">
-        <header className="bg-white shrink-0 border-b border-slate-200">
-          <div className="flex items-start justify-between gap-4 px-6 pt-5 pb-4">
-            <div>
-              <h1 className="text-lg font-bold text-slate-900">Community</h1>
-              <p className="text-[12.5px] text-slate-500">Discover, preview, and import subtitle styles created by the community.</p>
+      <main className="flex min-h-0 flex-1 min-w-0 flex-col overflow-hidden pb-[calc(3.5rem+env(safe-area-inset-bottom,0px))] lg:pb-0">
+        <header className="shrink-0 border-b border-slate-200/70 bg-white/85 shadow-[0_1px_0_rgba(15,23,42,0.04)] backdrop-blur-md">
+          <div className="flex flex-col gap-3 px-4 pb-3 pt-4 sm:px-6 sm:pb-4 sm:pt-5 lg:flex-row lg:items-start lg:justify-between">
+            <div className="min-w-0">
+              <h1 className="text-lg font-bold tracking-tight text-slate-900">Community</h1>
+              <p className="mt-1 text-[12.5px] leading-relaxed text-slate-500">
+                Discover, preview, and import subtitle styles created by the community.
+              </p>
             </div>
-            <div className="flex items-center gap-2 shrink-0">
+            <div className="flex flex-wrap items-center gap-2 sm:shrink-0 lg:flex-nowrap">
+              <div className="relative w-full min-w-0 md:hidden">
+                <Search className="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-slate-400" />
+                <Input
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Search styles, creators…"
+                  className="h-9 w-full pl-8 text-[12.5px]"
+                />
+              </div>
               <div className="relative hidden md:block">
                 <Search className="size-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
                 <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search styles, creators, or tags..." className="pl-8 h-9 w-72 text-[12.5px]" />
               </div>
-              <Button variant="outline" size="sm" className="h-9"><Filter className="size-3.5" />Filters</Button>
-              <Button size="sm" onClick={() => router.push("/styles/code/new")} className="h-9 bg-gradient-to-r from-indigo-600 to-fuchsia-600 hover:from-indigo-700 hover:to-fuchsia-700 text-white"><Plus className="size-3.5" />Create Style</Button>
+              <Button size="sm" onClick={() => router.push("/styles/code/new")} className="h-9 shrink-0 bg-gradient-to-r from-indigo-600 to-fuchsia-600 hover:from-indigo-700 hover:to-fuchsia-700 text-white"><Plus className="size-3.5" />Create Style</Button>
             </div>
           </div>
           <div className="h-px bg-slate-200" />
-          <nav className="flex items-center gap-1 px-6">
+          <nav className="-mb-px grid grid-cols-2 gap-1 border-b border-slate-200 px-4 sm:flex sm:flex-nowrap sm:items-center sm:gap-1 sm:px-6">
             {TABS.map((t) => { const Icon = t.icon; const active = tab === t.id; return (
-              <button key={t.id} type="button" onClick={() => setTab(t.id)} className={cn("inline-flex items-center gap-1.5 px-3 py-2.5 text-[12.5px] font-medium border-b-2 -mb-px transition-colors", active ? "border-indigo-600 text-indigo-700" : "border-transparent text-slate-500 hover:text-slate-800")}>
-                <Icon className="size-3.5" />{t.label}
+              <button key={t.id} type="button" onClick={() => setTab(t.id)} className={cn("inline-flex min-h-[44px] items-center justify-center gap-1.5 border-b-2 px-2 py-2.5 text-center text-[11px] font-medium transition-colors sm:min-h-0 sm:justify-start sm:whitespace-nowrap sm:px-3 sm:text-[12.5px]", active ? "border-indigo-600 text-indigo-700" : "border-transparent text-slate-500 hover:text-slate-800")}>
+                <Icon className="size-3.5 shrink-0" />{t.label}
               </button>); })}
           </nav>
         </header>
-        <ScrollArea className="flex-1 min-h-0">
-          <div className="px-6 py-5 grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_260px] gap-5">
+        <ScrollArea className="min-h-0 flex-1">
+          <div className="grid grid-cols-1 gap-5 px-4 py-4 sm:px-6 sm:py-5 xl:grid-cols-[minmax(0,1fr)_260px]">
             <div className="min-w-0 space-y-4">
               {error && <div className="rounded-md border border-rose-100 bg-rose-50 px-3 py-2 text-[12.5px] text-rose-700">{error}</div>}
               {loading ? (
                 <div className="grid place-items-center py-20"><Loader2 className="size-5 animate-spin text-slate-400" /></div>
               ) : pageItems.length === 0 ? (
-                <div className="rounded-xl border border-dashed border-slate-300 bg-white p-12 text-center">
+                <div className="rounded-xl border border-dashed border-slate-300/90 bg-white/90 p-12 text-center shadow-sm shadow-slate-900/[0.02]">
                   <h2 className="text-base font-semibold text-slate-800">No styles match</h2>
                   <p className="text-sm text-slate-500 mt-1">Try a different filter or clear your search.</p>
                 </div>
@@ -164,8 +173,8 @@ export default function CommunityPage() {
                 </div>
               )}
               {!loading && visible.length > 0 && (
-                <div className="flex items-center justify-between pt-2">
-                  <p className="text-[12px] text-slate-500">Showing {(page - 1) * PAGE_SIZE + 1} to {Math.min(page * PAGE_SIZE, visible.length)} of {visible.length} styles</p>
+                <div className="flex flex-col gap-3 pt-2 sm:flex-row sm:items-center sm:justify-between">
+                  <p className="text-center text-[12px] text-slate-500 sm:text-left">Showing {(page - 1) * PAGE_SIZE + 1} to {Math.min(page * PAGE_SIZE, visible.length)} of {visible.length} styles</p>
                   <Pagination page={page} totalPages={totalPages} onChange={setPage} />
                 </div>
               )}

@@ -286,52 +286,150 @@ export function secondsToFrames(seconds: number, fps: number): number {
   return Math.round(seconds * fps);
 }
 
+/** Strip simple inline tags from SRT/VTT cue text (`<i>`, `<b>`, `<font …>`). */
+export function stripSubtitleMarkup(text: string): string {
+  return text
+    .replace(/<[^>]+>/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/**
+ * Parse `HH:MM:SS,mmm` / `MM:SS.mmm` / `SS.mmm` (comma or dot ms) to seconds.
+ */
+export function parseSubtitleTimestamp(value: string): number {
+  const raw = value
+    .trim()
+    .replace(",", ".")
+    .split(/\s+/)[0]
+    .replace(/[^\d.:]/g, "");
+  const parts = raw.split(":").filter((p) => p.length > 0);
+  const parseSecondsFragment = (frag: string): number => {
+    const [sec, msRaw] = frag.split(".");
+    const s = Number(sec);
+    if (!Number.isFinite(s)) return 0;
+    if (!msRaw) return s;
+    const ms = Number((msRaw + "000").slice(0, 3));
+    return Number.isFinite(ms) ? s + ms / 1000 : s;
+  };
+  if (parts.length === 1) return parseSecondsFragment(parts[0]);
+  if (parts.length === 2) return (Number(parts[0]) || 0) * 60 + parseSecondsFragment(parts[1]);
+  if (parts.length >= 3) {
+    const h = Number(parts[parts.length - 3]) || 0;
+    const m = Number(parts[parts.length - 2]) || 0;
+    return h * 3600 + m * 60 + parseSecondsFragment(parts[parts.length - 1]);
+  }
+  return 0;
+}
+
+function splitCueBlocks(text: string): string[] {
+  const normalized = text.replace(/^\uFEFF/, "").replace(/\r\n/g, "\n").trim();
+  return normalized.split(/\n\s*\n+/).map((b) => b.trim()).filter(Boolean);
+}
+
+/** Parse SubRip (.srt) content into partial cues; use {@link normalizeTimeline} for final items. */
+export function parseSrtCuePartials(content: string): Partial<SubtitleItem>[] {
+  const partials: Partial<SubtitleItem>[] = [];
+  for (const block of splitCueBlocks(content)) {
+    const lines = block.split("\n").map((l) => l.trim()).filter(Boolean);
+    if (!lines.length) continue;
+    let idx = 0;
+    if (/^\d+$/.test(lines[0])) idx = 1;
+    if (idx >= lines.length) continue;
+    const timeLine = lines[idx];
+    if (!timeLine.includes("-->")) continue;
+    const [left, right] = timeLine.split("-->").map((s) => s.trim());
+    if (!left || !right) continue;
+    const endToken = right.split(/\s+/)[0];
+    const start = parseSubtitleTimestamp(left);
+    const end = parseSubtitleTimestamp(endToken);
+    const textRaw = lines.slice(idx + 1).join("\n").trim();
+    const text = stripSubtitleMarkup(textRaw.replace(/\n/g, " "));
+    if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start || !text) continue;
+    partials.push({text, start, end});
+  }
+  return partials;
+}
+
+/** Parse WebVTT (.vtt) cue blocks (WEBVTT header optional). */
+export function parseWebVttCuePartials(content: string): Partial<SubtitleItem>[] {
+  let body = content.replace(/^\uFEFF/, "").replace(/\r\n/g, "\n");
+  if (/^\s*WEBVTT\b/im.test(body)) {
+    body = body.replace(/^\s*WEBVTT[^\n]*(?:\n|$)/i, "");
+  }
+  const partials: Partial<SubtitleItem>[] = [];
+  for (const block of splitCueBlocks(body)) {
+    const lines = block.split("\n").map((l) => l.trim()).filter(Boolean);
+    if (!lines.length) continue;
+    if (/^(NOTE|STYLE|REGION)\b/i.test(lines[0])) continue;
+    const timeIdx = lines.findIndex((l) => l.includes("-->"));
+    if (timeIdx === -1) continue;
+    const timeLine = lines[timeIdx];
+    const [left, right] = timeLine.split("-->").map((s) => s.trim());
+    if (!left || !right) continue;
+    const endToken = right.split(/\s+/)[0];
+    const start = parseSubtitleTimestamp(left);
+    const end = parseSubtitleTimestamp(endToken);
+    const textRaw = lines.slice(timeIdx + 1).join("\n").trim();
+    const text = stripSubtitleMarkup(textRaw.replace(/\n/g, " "));
+    if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start || !text) continue;
+    partials.push({text, start, end});
+  }
+  return partials;
+}
+
+export type SubtitleImportResult =
+  | {ok: true; items: SubtitleItem[]}
+  | {ok: false; error: string};
+
+/**
+ * Load subtitles from file contents. Supports `.srt`, `.vtt`, and plain `.txt`
+ * (one caption per line → auto-spaced timeline like the sample script).
+ */
+export function importSubtitlesFromFileContent(content: string, fileName = ""): SubtitleImportResult {
+  const trimmed = content.replace(/^\uFEFF/, "").trim();
+  if (!trimmed) {
+    return {ok: false, error: "File is empty."};
+  }
+  const ext = (fileName.split(".").pop() ?? "").toLowerCase();
+
+  const trySrt = () => parseSrtCuePartials(trimmed);
+  const tryVtt = () => parseWebVttCuePartials(trimmed);
+
+  let partials: Partial<SubtitleItem>[] = [];
+  if (ext === "vtt" || /^\s*WEBVTT\b/im.test(trimmed)) {
+    partials = tryVtt();
+    if (!partials.length) partials = trySrt();
+  } else {
+    partials = trySrt();
+    if (!partials.length && (ext === "vtt" || trimmed.includes("-->"))) partials = tryVtt();
+  }
+
+  if (!partials.length && (ext === "txt" || ext === "")) {
+    const timeline = createTimelineFromText(trimmed);
+    if (timeline.chunks.length) {
+      return {ok: true, items: timeline.chunks};
+    }
+  }
+
+  if (!partials.length) {
+    return {
+      ok: false,
+      error: "Could not read any timed cues. Use .srt, .vtt, or a .txt script (one line per caption).",
+    };
+  }
+
+  return {ok: true, items: normalizeTimeline(partials).chunks};
+}
+
+/** @deprecated Use {@link importSubtitlesFromFileContent} */
 export function parseSubtitleFile(content: string): SubtitleItem[] {
-  const blocks = content
-    .replace(/\r\n/g, "\n")
-    .split(/\n\s*\n/g)
-    .map((block) => block.trim())
-    .filter(Boolean);
-
-  const parsed = blocks.flatMap((block, index) => {
-    const lines = block.split("\n").map((line) => line.trim()).filter(Boolean);
-    const timeLineIndex = lines.findIndex((line) => line.includes("-->"));
-    if (timeLineIndex === -1) {
-      return [];
-    }
-
-    const [startRaw, endRaw] = lines[timeLineIndex].split("-->").map((value) => value.trim());
-    const start = parseTimestamp(startRaw);
-    const end = parseTimestamp(endRaw);
-    const text = lines.slice(timeLineIndex + 1).join(" ").trim();
-
-    if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start || !text) {
-      return [];
-    }
-
-    return normalizeSubtitleItem({id: `import-${index}`, text, start, end}, index);
-  });
-
-  return parsed;
+  const r = importSubtitlesFromFileContent(content, ".srt");
+  return r.ok ? r.items : [];
 }
 
 export function serializeSubtitlesToText(subtitles: SubtitleItem[]): string {
   return subtitles.map((subtitle) => subtitle.text).join("\n");
-}
-
-function parseTimestamp(value: string): number {
-  const clean = value.replace(",", ".").split(/\s+/)[0];
-  const parts = clean.split(":").map(Number);
-
-  if (parts.length === 3) {
-    return parts[0] * 3600 + parts[1] * 60 + parts[2];
-  }
-
-  if (parts.length === 2) {
-    return parts[0] * 60 + parts[1];
-  }
-
-  return Number(clean);
 }
 
 function clamp(value: number, min: number, max: number): number {

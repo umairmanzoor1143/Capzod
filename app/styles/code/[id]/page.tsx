@@ -7,7 +7,7 @@ import {Loader2} from "lucide-react";
 import {AppSidebar} from "@/components/layout/AppSidebar";
 import {Button} from "@/components/ui/button";
 import {useAuth} from "@/components/auth/AuthProvider";
-import {apiFetchMyStyles} from "@/lib/api";
+import {apiFetchMyStyles, apiRecordStyleView} from "@/lib/api";
 import type {CommunitySubtitleStyle} from "@/lib/community-styles";
 import {CodeStyleEditor} from "../_components/CodeStyleEditor";
 
@@ -52,11 +52,21 @@ export default function EditCodeStylePage() {
     };
   }, [id, user, authLoading]);
 
+  React.useEffect(() => {
+    if (state.status !== "ready") return;
+    if (typeof window === "undefined") return;
+    const key = `styleView:${state.style.id}`;
+    if (sessionStorage.getItem(key)) return;
+    void apiRecordStyleView(state.style.id).then((ok) => {
+      if (ok) sessionStorage.setItem(key, "1");
+    });
+  }, [state]);
+
   if (state.status === "loading") {
     return (
-      <div className="flex h-screen overflow-hidden bg-slate-50">
+      <div className="flex h-[100dvh] max-h-[100dvh] overflow-hidden bg-gradient-to-br from-slate-50 via-white to-indigo-50/35">
         <AppSidebar />
-        <main className="flex-1 grid place-items-center">
+        <main className="flex min-h-0 flex-1 items-center justify-center pb-[calc(3.5rem+env(safe-area-inset-bottom,0px))] lg:pb-0">
           <Loader2 className="size-5 animate-spin text-slate-400" />
         </main>
       </div>
@@ -70,9 +80,9 @@ export default function EditCodeStylePage() {
 
   if (state.status === "not-found") {
     return (
-      <div className="flex h-screen overflow-hidden bg-slate-50">
+      <div className="flex h-[100dvh] max-h-[100dvh] overflow-hidden bg-gradient-to-br from-slate-50 via-white to-indigo-50/35">
         <AppSidebar />
-        <main className="flex-1 grid place-items-center p-6 text-center">
+        <main className="flex min-h-0 flex-1 flex-col items-center justify-center p-6 pb-[calc(3.5rem+env(safe-area-inset-bottom,0px))] text-center lg:pb-6">
           <div className="space-y-3 max-w-sm">
             <h2 className="text-base font-semibold text-slate-800">Style not found</h2>
             <p className="text-sm text-slate-500">

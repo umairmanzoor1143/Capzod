@@ -1,12 +1,13 @@
 "use client";
 import React, { useState, useMemo, useRef, useCallback, useEffect } from "react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { Player, PlayerRef } from "@remotion/player";
 import { useAuth } from "@/components/auth/AuthProvider";
 import {
   Play, Pause, Plus, Trash2, Download,
   SkipBack, SkipForward, Maximize2, Check, ChevronDown, Sliders, Sparkles, Wand2,
-  Users, Code2,
+  Users, Code2, X, Upload,
 } from "lucide-react";
 import { SubtitleVideo } from "@/remotion/SubtitleVideo";
 import { CodeStyleVideo } from "@/remotion/CodeStyleVideo";
@@ -23,12 +24,16 @@ import {
   getTimelineDurationInFrames,
   isBuiltInSubtitleStyleId,
   normalizeSubtitleItem,
+  importSubtitlesFromFileContent,
+  getWords,
+  getWordTimings,
 } from "@/lib/subtitles";
 import {
   communityStyleKey,
   toCustomSubtitleStyleConfig,
   type CommunitySubtitleStyle,
 } from "@/lib/community-styles";
+import { resolvePresetTypographyForEditor } from "@/lib/subtitle-style-merge";
 import { apiFetchEditorStyles } from "@/lib/api";
 import { ProTimeline } from "@/components/timeline/ProTimeline";
 import { TypographyEditor } from "@/components/typography/TypographyEditor";
@@ -40,6 +45,14 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
+
+const BuiltinStyleThumbnail = dynamic(
+  () =>
+    import("@/components/styles/BuiltinStyleThumbnail").then(
+      (m) => m.BuiltinStyleThumbnail
+    ),
+  { ssr: false }
+);
 
 const fps = 30;
 const epsilon = 0.01;
@@ -60,8 +73,11 @@ export default function Home() {
   const [playing, setPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [activeTab, setActiveTab] = useState<"subtitles" | "style" | "settings">("subtitles");
+  const [mobileEditorOpen, setMobileEditorOpen] = useState(false);
+  const [subtitleImportError, setSubtitleImportError] = useState<string | null>(null);
   const [styleId, setStyleId] = useState<string>("clean-minimal");
-  const { user: authUser } = useAuth();
+  const { user: authUser, loading: authLoading } = useAuth();
+  const canExport = Boolean(authUser) && !authLoading;
   const [importedStyles, setImportedStyles] = useState<CommunitySubtitleStyle[]>([]);
   const [styleLibraryLoading, setStyleLibraryLoading] = useState(false);
   const [styleLibraryError, setStyleLibraryError] = useState<string | null>(null);
@@ -77,6 +93,7 @@ export default function Home() {
   const exportMenuRef = useRef<HTMLDivElement | null>(null);
   const [sizeMenuOpen, setSizeMenuOpen] = useState(false);
   const sizeMenuRef = useRef<HTMLDivElement | null>(null);
+  const subtitleFileInputRef = useRef<HTMLInputElement | null>(null);
 
   const playerRef = useRef<PlayerRef>(null);
   const activeFormat = useMemo(
@@ -98,6 +115,16 @@ export default function Home() {
   const isCodeStyle = selectedCommunityStyle?.kind === "code";
   const codeStyleSource = isCodeStyle ? selectedCommunityStyle?.code : undefined;
 
+  const settingsTypographyInherit = useMemo(() => {
+    if (selectedCommunityStyle) {
+      return resolvePresetTypographyForEditor(
+        selectedCommunityStyle.baseStyle,
+        selectedCommunityStyle.typography
+      );
+    }
+    return resolvePresetTypographyForEditor(renderStyleId, undefined);
+  }, [selectedCommunityStyle, renderStyleId]);
+
   // Robust duration: fallback when subtitles are empty
   const computedFrames = useMemo(
     () => (subtitles.length > 0 ? getTimelineDurationInFrames(sampleScript, fps, subtitles) : 0),
@@ -110,8 +137,12 @@ export default function Home() {
     setSubtitles((current) =>
       current.map((sub) => {
         if (sub.id !== id) return sub;
-        const next = { ...sub, ...patch };
+        const next = {...sub, ...patch};
         next.duration = Number((next.end - next.start).toFixed(3));
+        if (patch.text !== undefined) {
+          next.words = getWords(next.text);
+          next.wordTimings = getWordTimings(next.text, next.duration);
+        }
         return next;
       })
     );
@@ -124,6 +155,34 @@ export default function Home() {
       player.seekTo(Math.max(0, Math.min(Math.floor(time * fps), durationInFrames - 1)));
     },
     [durationInFrames]
+  );
+
+  const handleSubtitleFileChange = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      e.target.value = "";
+      if (!file) return;
+      try {
+        const text = await file.text();
+        const result = importSubtitlesFromFileContent(text, file.name);
+        if (!result.ok) {
+          setSubtitleImportError(result.error);
+          return;
+        }
+        setSubtitleImportError(null);
+        setSubtitles(result.items);
+        const first = result.items[0];
+        if (first) {
+          setSelectedId(first.id);
+          handleSeek(first.start);
+        } else {
+          setSelectedId("");
+        }
+      } catch (err) {
+        setSubtitleImportError(err instanceof Error ? err.message : "Could not read file");
+      }
+    },
+    [handleSeek]
   );
 
   useEffect(() => {
@@ -197,6 +256,20 @@ export default function Home() {
     return () => document.removeEventListener("mousedown", onDoc);
   }, [exportMenuOpen]);
 
+  useEffect(() => {
+    if (!canExport) setExportMenuOpen(false);
+  }, [canExport]);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 1024px)");
+    const onChange = () => {
+      if (mq.matches) setMobileEditorOpen(false);
+    };
+    mq.addEventListener("change", onChange);
+    onChange();
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
+
   const sortedSubs = useMemo(
     () => [...subtitles].sort((a, b) => a.start - b.start),
     [subtitles]
@@ -205,6 +278,11 @@ export default function Home() {
   const handleExport = useCallback(
     async (mode: "mp4" | "webm") => {
       if (exporting) return;
+      if (!authUser) {
+        setExportError("Sign in to export video.");
+        setExportMenuOpen(false);
+        return;
+      }
       setExporting(mode);
       setExportProgress(0);
       setExportStage("starting");
@@ -215,6 +293,7 @@ export default function Home() {
         const res = await fetch("/api/render", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
+          credentials: "include",
           body: JSON.stringify({
             text: sampleScript,
             style: renderStyleId,
@@ -229,6 +308,13 @@ export default function Home() {
             format: mode,
           }),
         });
+        if (res.status === 401) {
+          const body = (await res.json().catch(() => ({}))) as { error?: string };
+          throw new Error(body.error || "Sign in to export video.");
+        }
+        if (!res.ok) {
+          throw new Error(`Export failed (${res.status})`);
+        }
         if (!res.body) throw new Error("No response stream");
         const reader = res.body.getReader();
         const decoder = new TextDecoder();
@@ -276,10 +362,11 @@ export default function Home() {
         setExporting(null);
       }
     },
-    [exporting, renderStyleId, customStyle, codeStyleSource, isCodeStyle, typography, background, subtitles, activeFormat]
+    [exporting, authUser, renderStyleId, customStyle, codeStyleSource, isCodeStyle, typography, background, subtitles, activeFormat]
   );
 
   function insertSubtitleAt(index: number) {
+    setSubtitleImportError(null);
     const before = sortedSubs[index - 1];
     const after = sortedSubs[index];
     let start: number;
@@ -357,51 +444,210 @@ export default function Home() {
     });
   }
 
+  function renderEditorPanelBody() {
+    if (activeTab === "subtitles") {
+      return (
+        <ScrollArea className="flex-1 min-h-0">
+          <div className="px-3 py-2">
+            {subtitleImportError ? (
+              <div className="mb-3 flex items-start justify-between gap-2 rounded-md border border-rose-200 bg-rose-50 px-2.5 py-2 text-[11px] text-rose-800">
+                <span className="min-w-0 leading-snug">{subtitleImportError}</span>
+                <button
+                  type="button"
+                  className="shrink-0 font-semibold text-rose-700 hover:text-rose-900"
+                  onClick={() => setSubtitleImportError(null)}
+                >
+                  Dismiss
+                </button>
+              </div>
+            ) : null}
+            {sortedSubs.length === 0 ? (
+              <div className="flex h-full min-h-[300px] flex-col items-center justify-center gap-3 px-6 text-center">
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-indigo-50 text-indigo-500">
+                  <Plus size={20} />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-slate-700">No subtitles yet</p>
+                  <p className="mt-1 text-xs text-slate-400">
+                    Add captions manually or import an .srt / .vtt file (with timings). Plain .txt uses one line per
+                    caption and auto-spacing.
+                  </p>
+                </div>
+                <div className="flex w-full max-w-sm flex-col items-stretch justify-center gap-2 sm:flex-row sm:items-center">
+                  <button
+                    type="button"
+                    onClick={() => insertSubtitleAt(0)}
+                    className="inline-flex items-center justify-center gap-1.5 rounded-md bg-indigo-600 px-3 py-2 text-xs font-semibold text-white hover:bg-indigo-700"
+                  >
+                    <Plus size={12} /> Add subtitle
+                  </button>
+                  <label
+                    htmlFor="subtitle-file-import"
+                    className="inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-md border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50"
+                  >
+                    <Upload size={14} />
+                    Upload file
+                  </label>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="mb-2 flex flex-wrap items-center gap-2 border-b border-slate-100 pb-2">
+                  <label
+                    htmlFor="subtitle-file-import"
+                    className="inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-[11px] font-semibold text-slate-700 shadow-sm hover:bg-slate-50"
+                  >
+                    <Upload size={13} />
+                    Import .srt / .vtt / .txt
+                  </label>
+                  <span className="text-[10px] text-slate-400">Replaces all captions on the timeline.</span>
+                </div>
+                <InsertButton onClick={() => insertSubtitleAt(0)} />
+                {sortedSubs.map((sub, i) => (
+                  <React.Fragment key={sub.id}>
+                    <div
+                      onClick={() => {
+                        setSelectedId(sub.id);
+                        handleSeek(sub.start);
+                      }}
+                      className={cn(
+                        "group flex cursor-pointer gap-2.5 rounded-md border p-2.5 transition-colors",
+                        selectedId === sub.id
+                          ? "border-indigo-500 bg-indigo-50/60"
+                          : "border-slate-200 bg-white hover:border-slate-300"
+                      )}
+                    >
+                      <span className="w-10 shrink-0 pt-1 text-[11px] font-semibold tabular-nums text-slate-400">
+                        {formatDuration(sub.start)}
+                      </span>
+                      <textarea
+                        value={sub.text}
+                        onChange={(e) => updateSubtitle(sub.id, { text: e.target.value })}
+                        placeholder="Empty subtitle…"
+                        className={cn(
+                          "flex-1 resize-none bg-transparent text-[13px] font-medium leading-snug outline-none placeholder:italic placeholder:text-slate-300",
+                          selectedId === sub.id ? "text-slate-900" : "text-slate-700"
+                        )}
+                        rows={2}
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                      <div className="flex shrink-0 flex-col items-end gap-1">
+                        {sub.overrides && Object.keys(sub.overrides).length > 0 && (
+                          <span
+                            className="rounded bg-indigo-100 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-indigo-700"
+                            title="This subtitle has style overrides"
+                          >
+                            custom
+                          </span>
+                        )}
+                        <button
+                          className="text-slate-300 opacity-100 transition-colors hover:text-red-600 sm:opacity-0 sm:group-hover:opacity-100"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            deleteSubtitle(sub.id);
+                          }}
+                          aria-label="Delete subtitle"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </div>
+                    {selectedId === sub.id && (
+                      <SubtitleOverridePanel
+                        subtitle={sub}
+                        global={settingsTypographyInherit}
+                        onChange={(overrides) => updateSubtitle(sub.id, { overrides })}
+                      />
+                    )}
+                    <InsertButton onClick={() => insertSubtitleAt(i + 1)} />
+                  </React.Fragment>
+                ))}
+              </>
+            )}
+          </div>
+        </ScrollArea>
+      );
+    }
+    if (activeTab === "style") {
+      return (
+        <StylePanel
+          selected={styleId}
+          onSelect={setStyleId}
+          importedStyles={importedStyles}
+          loadingImported={styleLibraryLoading}
+          error={styleLibraryError}
+          signedIn={!!authUser}
+        />
+      );
+    }
+    return (
+      <SettingsPanel
+        value={typography}
+        onChange={setTypography}
+        inheritFrom={settingsTypographyInherit}
+      />
+    );
+  }
+
   return (
-    <div className="flex h-screen bg-[#f8f9fa] text-slate-800 font-sans overflow-hidden">
+    <div className="flex h-[100dvh] max-h-[100dvh] overflow-hidden bg-gradient-to-br from-slate-50 via-white to-indigo-50/35 text-slate-800">
       <AppSidebar />
 
       {/* Main */}
-      <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
+      <main className="flex min-h-0 flex-1 flex-col overflow-hidden pb-[calc(3.5rem+env(safe-area-inset-bottom,0px))] min-w-0 lg:pb-0">
+        <input
+          id="subtitle-file-import"
+          ref={subtitleFileInputRef}
+          type="file"
+          accept=".srt,.vtt,.txt,text/plain,application/x-subrip"
+          className="sr-only"
+          onChange={handleSubtitleFileChange}
+        />
         {/* Header */}
-        <header className="h-[56px] border-b border-slate-200 bg-white flex items-center justify-between px-5 shrink-0">
-          <div className="flex items-center gap-3">
-            <h1 className="text-base font-bold">Auto Captions</h1>
-            <div className="w-px h-4 bg-slate-300 hidden md:block" />
-            <span className="text-xs text-slate-500 hidden md:inline-block">
+        <header className="relative z-40 flex min-h-[52px] shrink-0 flex-wrap items-center justify-between gap-x-2 gap-y-2 border-b border-slate-200/70 bg-white/85 px-3 py-2 shadow-[0_1px_0_rgba(15,23,42,0.04)] backdrop-blur-md sm:px-5 lg:h-14 lg:flex-nowrap lg:py-0">
+          <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+            <h1 className="truncate text-sm font-bold tracking-tight text-slate-900 sm:text-base">
+              Auto Captions
+            </h1>
+            <div className="hidden h-4 w-px bg-slate-200 md:block" />
+            <span className="hidden text-xs font-medium text-slate-500 md:inline-block">
               Elux Space / Youtube Videos
             </span>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
             <Link
               href="/community"
-              className="hidden md:flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-slate-200 bg-white text-xs font-semibold text-slate-600 hover:bg-slate-50 transition-colors"
+              className="hidden items-center gap-1.5 rounded-lg border border-slate-200/90 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-600 shadow-sm shadow-slate-900/[0.03] transition-[box-shadow,background-color] hover:bg-slate-50/90 md:flex"
             >
               <Users size={13} />
               Community
             </Link>
             <Link
               href="/styles/code"
-              className="hidden md:flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-slate-200 bg-white text-xs font-semibold text-slate-600 hover:bg-slate-50 transition-colors"
+              className="hidden items-center gap-1.5 rounded-lg border border-slate-200/90 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-600 shadow-sm shadow-slate-900/[0.03] transition-[box-shadow,background-color] hover:bg-slate-50/90 md:flex"
             >
               <Code2 size={13} />
               Create
             </Link>
             <div className="relative" ref={exportMenuRef}>
               <button
-                onClick={() => setExportMenuOpen((o) => !o)}
-                disabled={exporting !== null}
-                className="flex items-center gap-2 pl-2 pr-3 py-1.5 rounded-md bg-indigo-600 text-white text-xs font-medium hover:bg-indigo-700 transition-colors disabled:opacity-80 disabled:cursor-not-allowed"
+                type="button"
+                onClick={() => canExport && setExportMenuOpen((o) => !o)}
+                disabled={exporting !== null || !canExport}
+                title={!canExport ? "Sign in to export video" : undefined}
+                className="flex min-h-[40px] items-center gap-1.5 rounded-lg bg-gradient-to-br from-indigo-600 to-indigo-700 py-1.5 pl-2 pr-2.5 text-xs font-semibold text-white shadow-md shadow-indigo-600/30 transition-[filter,box-shadow,transform] hover:brightness-105 hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-80 sm:gap-2 sm:pr-3"
               >
                 {exporting ? (
                   <CircularProgress value={exportProgress} />
                 ) : (
                   <Download size={14} />
                 )}
-                {exporting
-                  ? `Exporting ${Math.round(exportProgress * 100)}%`
-                  : "Export"}
+                <span className="max-w-[9rem] truncate sm:max-w-none">
+                  {exporting
+                    ? `Export ${Math.round(exportProgress * 100)}%`
+                    : "Export"}
+                </span>
                 {!exporting && (
                   <ChevronDown
                     size={12}
@@ -409,18 +655,18 @@ export default function Home() {
                   />
                 )}
               </button>
-              {exportMenuOpen && !exporting && (
+              {exportMenuOpen && !exporting && canExport && (
                 <div
                   role="menu"
-                  className="absolute right-0 top-full mt-1.5 w-64 rounded-md border border-slate-200 bg-white shadow-lg overflow-hidden z-50"
+                  className="absolute right-0 top-full z-50 mt-2 w-[min(100vw-2rem,16rem)] overflow-hidden rounded-xl border border-slate-200/80 bg-white/95 shadow-menu backdrop-blur-md sm:w-64"
                 >
-                  <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide text-slate-400 border-b border-slate-100 bg-slate-50">
+                  <div className="border-b border-slate-100/90 bg-gradient-to-r from-slate-50 to-white px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">
                     Export format
                   </div>
                   <button
                     role="menuitem"
                     onClick={() => handleExport("mp4")}
-                    disabled={exporting !== null}
+                    disabled={exporting !== null || !canExport}
                     className="w-full flex flex-col items-start gap-0.5 px-3 py-2 text-left hover:bg-slate-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <span className="text-xs font-semibold text-slate-800">
@@ -434,7 +680,7 @@ export default function Home() {
                   <button
                     role="menuitem"
                     onClick={() => handleExport("webm")}
-                    disabled={exporting !== null}
+                    disabled={exporting !== null || !canExport}
                     className="w-full flex flex-col items-start gap-0.5 px-3 py-2 text-left hover:bg-slate-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <span className="text-xs font-semibold text-indigo-700">
@@ -451,12 +697,12 @@ export default function Home() {
         </header>
 
         {/* Workspace */}
-        <div className="flex-1 flex flex-col gap-2 min-h-0 bg-slate-100 p-2">
-          <div className="flex gap-2 flex-1 min-h-0">
+        <div className="flex min-h-0 flex-1 flex-col gap-2.5 px-1.5 pt-2 pb-14 sm:px-2 sm:pt-2.5 lg:p-3">
+          <div className="flex min-h-0 flex-1 flex-col gap-2.5 lg:flex-row">
             {/* Player */}
-            <div className="flex-1 rounded-lg border border-slate-200 bg-slate-50 flex flex-col min-w-0 overflow-hidden">
+            <div className="flex min-h-[min(340px,52dvh)] min-w-0 flex-1 flex-col overflow-hidden rounded-xl border border-slate-200/80 bg-white shadow-float ring-1 ring-slate-900/[0.02] lg:min-h-0">
               <div
-                className="flex-1 relative min-h-0"
+                className="relative min-h-0 flex-1"
                 style={
                   background === "transparent"
                     ? {
@@ -481,7 +727,7 @@ export default function Home() {
                   fps={fps}
                   compositionWidth={activeFormat.width}
                   compositionHeight={activeFormat.height}
-                  style={{ width: "100%", height: "100%" }}
+                  style={{position: "absolute", inset: 0, width: "100%", height: "100%"}}
                   inputProps={
                     isCodeStyle
                       ? {
@@ -491,6 +737,9 @@ export default function Home() {
                           width: activeFormat.width,
                           height: activeFormat.height,
                           code: codeStyleSource,
+                          style: renderStyleId,
+                          customStyle,
+                          typography,
                         }
                       : {
                           subtitles,
@@ -506,22 +755,23 @@ export default function Home() {
                   acknowledgeRemotionLicense
                 />
               </div>
-              <div className="h-12 border-t border-slate-200 flex items-center px-3 justify-between bg-white text-slate-700 shrink-0">
-                <span className="text-xs font-bold w-28 tabular-nums">
+              <div className="flex shrink-0 flex-col gap-2 border-t border-slate-200/80 bg-gradient-to-b from-white to-slate-50/40 px-2 py-2 text-slate-700 sm:h-12 sm:flex-row sm:items-center sm:justify-between sm:gap-0 sm:px-3 sm:py-0">
+                <div className="flex items-center justify-between gap-2 sm:contents">
+                  <span className="w-28 shrink-0 text-xs font-bold tabular-nums">
                   {formatDuration(currentTime)}{" "}
-                  <span className="text-slate-400 font-normal">
+                  <span className="font-normal text-slate-400">
                     / {formatDuration(durationInSeconds)}
                   </span>
                 </span>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2 sm:gap-3">
                   <button
-                    className="hover:text-indigo-600 transition-colors hidden sm:block"
+                    className="hidden text-slate-600 transition-colors hover:text-indigo-600 sm:block"
                     onClick={() => handleSeek(Math.max(0, currentTime - 5))}
                   >
                     <SkipBack size={18} fill="currentColor" />
                   </button>
                   <button
-                    className="w-9 h-9 rounded-md bg-indigo-600 text-white flex items-center justify-center hover:bg-indigo-700 transition-transform active:scale-95"
+                    className="flex h-9 w-9 items-center justify-center rounded-md bg-indigo-600 text-white transition-transform hover:bg-indigo-700 active:scale-95"
                     onClick={() =>
                       playing ? playerRef.current?.pause() : playerRef.current?.play()
                     }
@@ -533,62 +783,70 @@ export default function Home() {
                     )}
                   </button>
                   <button
-                    className="hover:text-indigo-600 transition-colors hidden sm:block"
+                    className="hidden text-slate-600 transition-colors hover:text-indigo-600 sm:block"
                     onClick={() => handleSeek(Math.min(durationInSeconds, currentTime + 5))}
                   >
                     <SkipForward size={18} fill="currentColor" />
                   </button>
                 </div>
-                <div className="flex items-center gap-2 w-auto justify-end relative" ref={sizeMenuRef}>
-                  <div className="hidden sm:flex items-center rounded-md border border-slate-200 overflow-hidden text-[10px] font-semibold">
+                </div>
+                <div
+                  className="relative flex min-w-0 flex-wrap items-center justify-between gap-2 sm:ml-auto sm:flex-nowrap sm:justify-end"
+                  ref={sizeMenuRef}
+                >
+                  <div className="flex min-w-0 flex-1 items-stretch overflow-hidden rounded-lg border border-slate-200/90 bg-white text-[10px] font-semibold shadow-sm sm:flex-none">
                     <button
                       onClick={() => setBackground("black")}
                       className={cn(
-                        "px-2 py-1 transition-colors",
+                        "min-w-0 flex-1 px-2 py-1.5 transition-colors sm:flex-none sm:py-1",
                         background === "black"
                           ? "bg-slate-900 text-white"
                           : "bg-white text-slate-500 hover:bg-slate-50"
                       )}
                       title="Black background"
+                      type="button"
                     >
                       Black
                     </button>
                     <button
                       onClick={() => setBackground("transparent")}
                       className={cn(
-                        "px-2 py-1 transition-colors border-l border-slate-200",
+                        "min-w-0 flex-1 border-l border-slate-200 px-2 py-1.5 transition-colors sm:flex-none sm:py-1",
                         background === "transparent"
                           ? "bg-indigo-600 text-white"
                           : "bg-white text-slate-500 hover:bg-slate-50"
                       )}
                       title="Transparent background"
+                      type="button"
                     >
-                      Transparent
+                      <span className="sm:hidden">Trans</span>
+                      <span className="hidden sm:inline">Transparent</span>
                     </button>
                   </div>
                   <button
+                    type="button"
                     onClick={() => setSizeMenuOpen((o) => !o)}
                     className={cn(
-                      "text-xs rounded-md border font-medium px-2 py-1 flex items-center gap-1 transition-colors hidden sm:flex",
+                      "flex max-w-[min(100%,11rem)] shrink-0 items-center gap-1 rounded-lg border px-2 py-1.5 text-xs font-medium transition-[box-shadow,background-color] sm:max-w-none sm:py-1",
                       sizeMenuOpen
-                        ? "border-indigo-300 bg-indigo-50 text-indigo-700"
-                        : "border-slate-200 text-slate-600 hover:bg-slate-50"
+                        ? "border-indigo-300/80 bg-indigo-50 text-indigo-700 shadow-sm ring-1 ring-indigo-200/50"
+                        : "border-slate-200/90 bg-white text-slate-600 shadow-sm hover:bg-slate-50/90"
                     )}
                     aria-haspopup="listbox"
                     aria-expanded={sizeMenuOpen}
                   >
-                    <span className="font-semibold">{activeFormat.name}</span>
-                    <span className="text-slate-400 font-mono text-[10px]">
+                    <span className="truncate font-semibold">{activeFormat.name}</span>
+                    <span className="hidden shrink-0 font-mono text-[10px] text-slate-400 tabular-nums sm:inline">
                       {activeFormat.label}
                     </span>
-                    <ChevronDown size={12} className={cn(sizeMenuOpen && "rotate-180")} />
+                    <ChevronDown size={12} className={cn("shrink-0", sizeMenuOpen && "rotate-180")} />
                   </button>
                   {sizeMenuOpen && (
                     <div
                       role="listbox"
-                      className="absolute right-0 bottom-full mb-1.5 w-56 rounded-md border border-slate-200 bg-white shadow-lg overflow-hidden z-50"
+                      className="absolute inset-x-0 bottom-full z-50 mb-2 max-h-[min(70dvh,420px)] overflow-hidden rounded-xl border border-slate-200/80 bg-white/95 shadow-menu backdrop-blur-md sm:inset-x-auto sm:right-0 sm:mx-0 sm:w-56"
                     >
-                      <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide text-slate-400 border-b border-slate-100 bg-slate-50">
+                      <div className="border-b border-slate-100/90 bg-gradient-to-r from-slate-50 to-white px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">
                         Canvas size
                       </div>
                       <ScrollArea className="max-h-72">
@@ -647,138 +905,38 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Right panel */}
-            <div className="w-[360px] xl:w-[400px] rounded-lg bg-white border border-slate-200 flex-col hidden lg:flex overflow-hidden">
-              <div className="flex border-b border-slate-200 px-3 gap-1 shrink-0">
-                {([
-                  { id: "subtitles", label: "Subtitles", icon: <Sparkles size={12} /> },
-                  { id: "style", label: "Style", icon: <Wand2 size={12} /> },
-                  { id: "settings", label: "Settings", icon: <Sliders size={12} /> },
-                ] as const).map((t) => (
+            {/* Right panel — desktop (mobile uses bottom dock + sheet) */}
+            <div className="hidden min-h-0 w-full flex-none flex-col overflow-hidden rounded-xl border border-slate-200/80 bg-white/95 shadow-float ring-1 ring-slate-900/[0.02] backdrop-blur-sm lg:flex lg:w-[360px] xl:w-[400px]">
+              <div className="grid shrink-0 grid-cols-3 gap-0 border-b border-slate-200/80 bg-slate-50/50 px-1 sm:px-1.5">
+                {(
+                  [
+                    { id: "subtitles" as const, label: "Subtitles", icon: <Sparkles size={12} /> },
+                    { id: "style" as const, label: "Style", icon: <Wand2 size={12} /> },
+                    { id: "settings" as const, label: "Settings", icon: <Sliders size={12} /> },
+                  ] as const
+                ).map((t) => (
                   <button
                     key={t.id}
+                    type="button"
                     onClick={() => setActiveTab(t.id)}
                     className={cn(
-                      "flex items-center gap-1.5 py-2.5 px-2 text-xs font-bold border-b-2 -mb-px transition-colors",
+                      "flex flex-col items-center justify-center gap-0.5 border-b-2 py-2.5 text-[10px] font-bold -mb-px transition-colors sm:flex-row sm:gap-1.5 sm:text-xs",
                       activeTab === t.id
                         ? "border-indigo-600 text-indigo-700"
-                        : "border-transparent text-slate-500 hover:text-slate-700"
+                        : "border-transparent text-slate-500 hover:bg-white/60 hover:text-slate-800"
                     )}
                   >
                     {t.icon}
-                    {t.label}
+                    <span className="truncate">{t.label}</span>
                   </button>
                 ))}
               </div>
-
-              {activeTab === "subtitles" ? (
-                <ScrollArea className="flex-1 min-h-0">
-                  <div className="px-3 py-2">
-                  {sortedSubs.length === 0 ? (
-                    <div className="h-full min-h-[300px] flex flex-col items-center justify-center text-center px-6 gap-3">
-                      <div className="w-12 h-12 rounded-full bg-indigo-50 text-indigo-500 flex items-center justify-center">
-                        <Plus size={20} />
-                      </div>
-                      <div>
-                        <p className="text-sm font-semibold text-slate-700">
-                          No subtitles yet
-                        </p>
-                        <p className="text-xs text-slate-400 mt-1">
-                          Add your first caption to start editing the timeline.
-                        </p>
-                      </div>
-                      <button
-                        onClick={() => insertSubtitleAt(0)}
-                        className="mt-1 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-indigo-600 text-white text-xs font-semibold hover:bg-indigo-700"
-                      >
-                        <Plus size={12} /> Add subtitle
-                      </button>
-                    </div>
-                  ) : (
-                    <>
-                      <InsertButton onClick={() => insertSubtitleAt(0)} />
-                      {sortedSubs.map((sub, i) => (
-                        <React.Fragment key={sub.id}>
-                          <div
-                            onClick={() => {
-                              setSelectedId(sub.id);
-                              handleSeek(sub.start);
-                            }}
-                            className={cn(
-                              "group p-2.5 rounded-md border flex gap-2.5 cursor-pointer transition-colors",
-                              selectedId === sub.id
-                                ? "bg-indigo-50/60 border-indigo-500"
-                                : "bg-white border-slate-200 hover:border-slate-300"
-                            )}
-                          >
-                            <span className="text-[11px] font-semibold text-slate-400 pt-1 shrink-0 tabular-nums w-10">
-                              {formatDuration(sub.start)}
-                            </span>
-                            <textarea
-                              value={sub.text}
-                              onChange={(e) => updateSubtitle(sub.id, { text: e.target.value })}
-                              placeholder="Empty subtitle…"
-                              className={cn(
-                                "flex-1 resize-none text-[13px] font-medium leading-snug bg-transparent outline-none placeholder:text-slate-300 placeholder:italic",
-                                selectedId === sub.id ? "text-slate-900" : "text-slate-700"
-                              )}
-                              rows={2}
-                              onClick={(e) => e.stopPropagation()}
-                            />
-                            <div className="flex flex-col gap-1 items-end shrink-0">
-                              {sub.overrides && Object.keys(sub.overrides).length > 0 && (
-                                <span
-                                  className="px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-700 text-[9px] font-bold uppercase tracking-wide"
-                                  title="This subtitle has style overrides"
-                                >
-                                  custom
-                                </span>
-                              )}
-                              <button
-                                className="text-slate-300 hover:text-red-600 transition-colors opacity-0 group-hover:opacity-100"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  deleteSubtitle(sub.id);
-                                }}
-                                aria-label="Delete subtitle"
-                              >
-                                <Trash2 size={14} />
-                              </button>
-                            </div>
-                          </div>
-                          {selectedId === sub.id && (
-                            <SubtitleOverridePanel
-                              subtitle={sub}
-                              global={typography}
-                              onChange={(overrides) =>
-                                updateSubtitle(sub.id, { overrides })
-                              }
-                            />
-                          )}
-                          <InsertButton onClick={() => insertSubtitleAt(i + 1)} />
-                        </React.Fragment>
-                      ))}
-                    </>
-                  )}
-                  </div>
-                </ScrollArea>
-              ) : activeTab === "style" ? (
-                <StylePanel
-                  selected={styleId}
-                  onSelect={setStyleId}
-                  importedStyles={importedStyles}
-                  loadingImported={styleLibraryLoading}
-                  error={styleLibraryError}
-                  signedIn={!!authUser}
-                />
-              ) : (
-                <SettingsPanel value={typography} onChange={setTypography} />
-              )}
+              {renderEditorPanelBody()}
             </div>
           </div>
 
           {/* Timeline */}
-          <div className="h-[220px] shrink-0 overflow-hidden">
+          <div className="h-[min(200px,34svh)] shrink-0 overflow-hidden rounded-xl border border-slate-200/70 bg-white/80 shadow-sm shadow-slate-900/[0.03] backdrop-blur-sm sm:h-[200px] lg:h-[220px]">
             <ProTimeline
               duration={durationInSeconds}
               currentTime={currentTime}
@@ -791,10 +949,94 @@ export default function Home() {
             />
           </div>
         </div>
+
+        {/* Mobile: editor dock (above bottom nav) + full-height bottom sheet */}
+        <div className="lg:hidden">
+          {!mobileEditorOpen && (
+            <nav
+              className="fixed inset-x-0 z-[55] grid grid-cols-3 divide-x divide-slate-200/80 border-t border-slate-200/80 bg-white/90 shadow-[0_-8px_32px_-12px_rgba(15,23,42,0.1)] backdrop-blur-xl backdrop-saturate-150"
+              style={{bottom: "calc(3.5rem + env(safe-area-inset-bottom, 0px))"}}
+              aria-label="Editor panels"
+            >
+              {(
+                [
+                  { id: "subtitles" as const, label: "Subtitles", icon: Sparkles },
+                  { id: "style" as const, label: "Style", icon: Wand2 },
+                  { id: "settings" as const, label: "Settings", icon: Sliders },
+                ] as const
+              ).map((t) => {
+                const Icon = t.icon;
+                const on = activeTab === t.id;
+                return (
+                  <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => {
+                      setActiveTab(t.id);
+                      setMobileEditorOpen(true);
+                    }}
+                    className={cn(
+                      "flex min-h-[48px] flex-col items-center justify-center gap-0.5 py-1.5 text-[10px] font-bold transition-colors",
+                      on ? "bg-indigo-50/90 text-indigo-700" : "text-slate-600 active:bg-slate-100/80"
+                    )}
+                  >
+                    <Icon className={cn("size-[18px]", on && "text-indigo-600")} />
+                    <span className="max-w-full truncate px-0.5">{t.label}</span>
+                  </button>
+                );
+              })}
+            </nav>
+          )}
+          {mobileEditorOpen && (
+            <>
+              <button
+                type="button"
+                className="fixed inset-0 z-[58] bg-black/45"
+                aria-label="Close panel"
+                onClick={() => setMobileEditorOpen(false)}
+              />
+              <div
+                className="fixed left-0 right-0 z-[60] flex flex-col overflow-hidden rounded-t-2xl border border-slate-200 border-b-0 bg-white shadow-[0_-12px_48px_rgba(15,23,42,0.2)]"
+                style={{
+                  top: "max(52px, 10dvh)",
+                  bottom: "calc(3.5rem + env(safe-area-inset-bottom, 0px))",
+                }}
+                role="dialog"
+                aria-modal="true"
+              >
+                <div className="flex shrink-0 items-center justify-between gap-2 border-b border-slate-200/80 bg-white/90 px-3 py-2.5 backdrop-blur-sm">
+                  <div className="flex min-w-0 items-center gap-2 text-sm font-bold text-slate-900">
+                    {activeTab === "subtitles" && <Sparkles className="size-4 shrink-0 text-indigo-600" />}
+                    {activeTab === "style" && <Wand2 className="size-4 shrink-0 text-indigo-600" />}
+                    {activeTab === "settings" && <Sliders className="size-4 shrink-0 text-indigo-600" />}
+                    <span className="truncate">
+                      {activeTab === "subtitles"
+                        ? "Subtitles"
+                        : activeTab === "style"
+                          ? "Caption style"
+                          : "Settings"}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setMobileEditorOpen(false)}
+                    className="grid size-9 shrink-0 place-items-center rounded-lg border border-slate-200/90 bg-white text-slate-600 shadow-sm transition-colors hover:bg-slate-50"
+                    aria-label="Close"
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+                <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+                  {renderEditorPanelBody()}
+                </div>
+              </div>
+            </>
+          )}
+        </div>
       </main>
       {(exporting || exportUrl || exportError) && (
-        <div className="fixed bottom-4 right-4 z-[100] w-[320px] rounded-lg bg-white border border-slate-200 shadow-lg overflow-hidden">
-          <div className="px-3 py-2 border-b border-slate-100 flex items-center justify-between gap-2">
+        <div className="fixed inset-x-3 bottom-[calc(4rem+env(safe-area-inset-bottom,0px))] z-[100] overflow-hidden rounded-xl border border-slate-200/80 bg-white/95 shadow-menu backdrop-blur-md sm:inset-x-auto sm:bottom-4 sm:right-4 sm:w-[320px] lg:bottom-4">
+          <div className="flex items-center justify-between gap-2 border-b border-slate-100/90 bg-gradient-to-r from-slate-50/90 to-white px-3 py-2">
             <div className="flex items-center gap-2 min-w-0">
               {exporting ? (
                 <CircularProgress value={exportProgress} color="indigo" size={14} />
@@ -915,7 +1157,7 @@ function InsertButton({ onClick }: { onClick: () => void }) {
       <div className="absolute inset-x-0 h-px bg-transparent group-hover/insert:bg-indigo-200 transition-colors" />
       <button
         onClick={onClick}
-        className="relative z-10 grid h-4 w-4 place-items-center rounded-full bg-white border border-slate-300 text-slate-400 opacity-0 group-hover/insert:opacity-100 hover:border-indigo-500 hover:text-indigo-600 transition-all"
+        className="relative z-10 grid h-4 w-4 place-items-center rounded-full bg-white border border-slate-300 text-slate-400 opacity-100 transition-all hover:border-indigo-500 hover:text-indigo-600 sm:opacity-0 sm:group-hover/insert:opacity-100"
         aria-label="Insert subtitle"
       >
         <Plus size={10} />
@@ -983,21 +1225,8 @@ function StylePanel({
                     : "border-input hover:border-slate-300"
                 )}
               >
-                <div
-                  className="h-14 rounded-sm flex items-center justify-center mb-2 px-2"
-                  style={{
-                    background: `linear-gradient(135deg, #0f172a, #1e293b)`,
-                  }}
-                >
-                  <span
-                    className={cn(
-                      "text-[11px] leading-none truncate w-full text-center",
-                      s.previewClass
-                    )}
-                    style={{ color: s.accent }}
-                  >
-                    {s.name.toUpperCase()}
-                  </span>
+                <div className="relative h-14 rounded-sm mb-2 overflow-hidden border border-slate-800/60 bg-[#020203]">
+                  <BuiltinStyleThumbnail styleId={s.id} />
                 </div>
                 <div className="flex items-center justify-between gap-1">
                   <span
@@ -1085,9 +1314,11 @@ function StylePanel({
 function SettingsPanel({
   value,
   onChange,
+  inheritFrom,
 }: {
   value: TypographyOverrides;
   onChange: (v: TypographyOverrides) => void;
+  inheritFrom: TypographyOverrides;
 }) {
   const overrideCount = Object.keys(value).length;
   return (
@@ -1113,6 +1344,7 @@ function SettingsPanel({
           value={value}
           onChange={onChange}
           onReset={overrideCount > 0 ? () => onChange({}) : undefined}
+          inheritFrom={inheritFrom}
         />
       </div>
     </ScrollArea>
