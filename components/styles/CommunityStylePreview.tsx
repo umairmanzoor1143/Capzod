@@ -1,15 +1,17 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { Check, Download, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import {
-  getCommunityStyleAccent,
-  getCommunityStylePreviewClass,
-  type CommunitySubtitleStyle,
-} from "@/lib/community-styles";
+import type { CommunitySubtitleStyle } from "@/lib/community-styles";
 import { cn } from "@/lib/utils";
+
+const StylePreviewSurface = dynamic(
+  () => import("./StylePreviewSurface").then((m) => m.StylePreviewSurface),
+  { ssr: false }
+);
 
 export function CommunityStylePreview({
   style,
@@ -26,9 +28,6 @@ export function CommunityStylePreview({
   action?: "import" | "imported" | "select" | "none";
   onClick?: () => void;
 }) {
-  const accent = getCommunityStyleAccent(style);
-  const previewClass = getCommunityStylePreviewClass(style);
-
   return (
     <Card
       onClick={onClick}
@@ -43,33 +42,11 @@ export function CommunityStylePreview({
     >
       <div
         className={cn(
-          "rounded-sm flex items-center justify-center px-3",
-          compact ? "h-14 mb-2" : "h-24 mb-3"
+          "relative mb-2 overflow-hidden rounded-sm border border-slate-800/60 bg-black",
+          compact ? "h-14" : "h-24"
         )}
-        style={{ background: "linear-gradient(135deg, #0f172a, #1e293b)" }}
       >
-        <span
-          className={cn(
-            "leading-none truncate w-full text-center",
-            compact ? "text-[11px]" : "text-sm",
-            previewClass
-          )}
-          style={{
-            color: accent,
-            fontFamily: style.typography.fontFamily,
-            fontWeight: style.typography.fontWeight,
-            letterSpacing: style.typography.letterSpacing,
-            textTransform: style.typography.textTransform,
-            background: style.behavior.background,
-            boxShadow: style.behavior.boxShadow,
-            textShadow: style.behavior.textShadow,
-            WebkitTextStroke: style.behavior.stroke,
-            borderRadius: style.behavior.radius,
-            padding: style.behavior.padding,
-          }}
-        >
-          {style.name.toUpperCase()}
-        </span>
+        <StylePreviewSurface style={style} playing={false} />
       </div>
 
       <div className="flex items-start justify-between gap-2">

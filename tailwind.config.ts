@@ -56,7 +56,10 @@ const config: Config = {
         sm: "calc(var(--radius) - 4px)"
       },
       boxShadow: {
-        panel: "0 18px 60px rgba(16, 24, 40, 0.08)"
+        panel: "0 18px 60px rgba(16, 24, 40, 0.08)",
+        float: "0 4px 24px -4px rgba(15, 23, 42, 0.07), 0 2px 8px -4px rgba(15, 23, 42, 0.05)",
+        menu: "0 12px 40px -8px rgba(15, 23, 42, 0.12), 0 4px 16px -4px rgba(15, 23, 42, 0.08)",
+        insetHighlight: "inset 0 1px 0 rgba(255, 255, 255, 0.65)"
       },
       keyframes: {
         "accordion-down": {

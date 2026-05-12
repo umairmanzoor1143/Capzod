@@ -16,8 +16,15 @@ import type {
 
 export type AuthUser = {
   id: string;
-  email?: string;
+  email?: string | null;
   user_metadata?: Record<string, unknown>;
+  app_metadata?: Record<string, unknown>;
+  /** From `public.user_profiles` when that table exists (admin, verified, tier label). */
+  profile?: {
+    isAdmin: boolean;
+    verified: boolean;
+    subscriptionTier: string;
+  } | null;
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────
@@ -39,33 +46,6 @@ export async function apiGetUser(): Promise<AuthUser | null> {
   return user;
 }
 
-export async function apiSignIn(
-  email: string,
-  password: string
-): Promise<AuthUser | null> {
-  const { user } = await json<{ user: AuthUser | null }>(
-    await fetch("/api/auth/signin", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
-    })
-  );
-  return user;
-}
-
-export async function apiSignUp(
-  email: string,
-  password: string
-): Promise<{ user: AuthUser | null; hasSession: boolean }> {
-  return json<{ user: AuthUser | null; hasSession: boolean }>(
-    await fetch("/api/auth/signup", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
-    })
-  );
-}
-
 export async function apiSignOut(): Promise<void> {
   await json<{ success: boolean }>(
     await fetch("/api/auth/signout", { method: "POST" })
@@ -76,7 +56,7 @@ export async function apiSignOut(): Promise<void> {
 
 export async function apiCheckAdmin(): Promise<boolean> {
   const { isAdmin } = await json<{ isAdmin: boolean }>(
-    await fetch("/api/admin/check")
+    await fetch("/api/admin/check", { credentials: "include" })
   );
   return isAdmin;
 }
@@ -162,6 +142,15 @@ export async function apiDeleteStyle(id: string): Promise<void> {
   await json<{ success: boolean }>(
     await fetch(`/api/styles/${id}`, { method: "DELETE" })
   );
+}
+
+export async function apiRecordStyleView(styleId: string): Promise<boolean> {
+  try {
+    const res = await fetch(`/api/styles/${styleId}/view`, { method: "POST" });
+    return res.ok;
+  } catch {
+    return false;
+  }
 }
 
 export async function apiUpdateStyleStatus(

@@ -1,5 +1,6 @@
 import {bundle} from "@remotion/bundler";
 import {renderMedia, selectComposition} from "@remotion/renderer";
+import {createClient} from "@/lib/supabase/server";
 import {NextResponse} from "next/server";
 import {spawn} from "node:child_process";
 import os from "node:os";
@@ -107,6 +108,18 @@ function getBundle() {
 }
 
 export async function POST(request: Request) {
+  const supabase = await createClient();
+  const {
+    data: {user},
+    error: authError,
+  } = await supabase.auth.getUser();
+  if (authError || !user) {
+    return NextResponse.json(
+      {error: "Sign in to export video."},
+      {status: 401}
+    );
+  }
+
   const body = (await request.json().catch(() => ({}))) as RenderRequest;
   const text = body.text?.trim() || sampleScript;
   const customStyle = sanitizeCustomStyleConfig(body.customStyle);
@@ -144,7 +157,17 @@ export async function POST(request: Request) {
         send({type: "stage", stage: "composing", progress: 0.05});
 
         const inputProps = isCodeStyle
-          ? {text, background, subtitles, width, height, code}
+          ? {
+              text,
+              background,
+              subtitles,
+              width,
+              height,
+              code,
+              style,
+              customStyle,
+              typography,
+            }
           : {text, style, background, subtitles, width, height, customStyle, typography};
         const composition = await selectComposition({
           serveUrl: bundled,

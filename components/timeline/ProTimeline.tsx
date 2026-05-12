@@ -9,7 +9,6 @@ const minClipDuration = 0.25;
 const epsilon = 0.01;
 const MIN_ZOOM = 20;
 const MAX_ZOOM = 400;
-const TRACK_LABEL_WIDTH = 140;
 
 type DragMode = "move" | "start" | "end";
 
@@ -200,7 +199,7 @@ export function ProTimeline({
   return (
     <div className="flex h-full flex-col overflow-hidden rounded-lg border border-slate-200 bg-white text-slate-800">
       {/* Toolbar */}
-      <div className="flex h-10 shrink-0 items-center justify-between border-b border-slate-200 bg-slate-50 px-3">
+      <div className="flex min-h-10 shrink-0 flex-wrap items-center justify-between gap-2 border-b border-slate-200 bg-slate-50 px-2 py-1.5 sm:h-10 sm:flex-nowrap sm:px-3 sm:py-0">
         <div className="flex items-center gap-2">
           <button
             onClick={() => onAdd?.()}
@@ -254,14 +253,13 @@ export function ProTimeline({
       {/* Body */}
       <div className="flex min-h-0 flex-1 overflow-hidden bg-white">
         <div
-          className="flex shrink-0 flex-col border-r border-slate-200 bg-slate-50 z-10"
-          style={{ width: TRACK_LABEL_WIDTH }}
+          className="flex w-[4.5rem] shrink-0 flex-col border-r border-slate-200 bg-slate-50 z-10 sm:w-24 lg:w-[140px]"
         >
           <div className="h-9 border-b border-slate-200" />
-          <div className="flex h-16 items-center justify-between px-4 border-b border-slate-200">
-            <div className="flex items-center gap-2 text-slate-600">
-              <Type size={14} />
-              <span className="text-xs font-semibold">Subtitles</span>
+          <div className="flex h-16 items-center justify-between border-b border-slate-200 px-2 sm:px-4">
+            <div className="flex min-w-0 items-center gap-1.5 text-slate-600 sm:gap-2">
+              <Type size={14} className="shrink-0" />
+              <span className="truncate text-[11px] font-semibold sm:text-xs">Subtitles</span>
             </div>
             <button>
               <Lock size={12} className="text-slate-400" />

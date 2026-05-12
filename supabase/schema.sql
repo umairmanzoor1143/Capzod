@@ -146,3 +146,55 @@ with check (
   auth.uid() = user_id
   and status = 'pending'
 );
+
+-- Style analytics (imports + views). Safe to run on existing projects.
+alter table public.subtitle_styles
+  add column if not exists import_count bigint not null default 0;
+
+alter table public.subtitle_styles
+  add column if not exists view_count bigint not null default 0;
+
+update public.subtitle_styles s
+set import_count = coalesce(
+  (select count(*)::bigint from public.subtitle_style_imports i where i.style_id = s.id),
+  0
+)
+where true;
+
+create or replace function public.bump_style_import_count()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  update public.subtitle_styles
+  set import_count = coalesce(import_count, 0) + 1
+  where id = new.style_id;
+  return new;
+end;
+$$;
+
+drop trigger if exists subtitle_style_imports_bump_count on public.subtitle_style_imports;
+create trigger subtitle_style_imports_bump_count
+after insert on public.subtitle_style_imports
+for each row execute function public.bump_style_import_count();
+
+create or replace function public.increment_style_view(target_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  update public.subtitle_styles
+  set view_count = coalesce(view_count, 0) + 1
+  where id = target_id
+    and (
+      status = 'approved'
+      or user_id = auth.uid()
+    );
+end;
+$$;
+
+grant execute on function public.increment_style_view(uuid) to authenticated;

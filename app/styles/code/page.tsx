@@ -80,33 +80,32 @@ export default function MyCodeStylesPage() {
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-slate-100 text-slate-800">
+    <div className="flex h-[100dvh] max-h-[100dvh] overflow-hidden bg-gradient-to-br from-slate-50 via-white to-indigo-50/35 text-slate-800">
       <AppSidebar />
-      <main className="flex-1 min-w-0 flex flex-col h-screen">
-        <header className="bg-white shrink-0 border-b border-slate-200">
-          <div className="flex items-start justify-between gap-4 px-6 pt-5 pb-4">
-            <div>
-              <h1 className="text-lg font-bold text-slate-900 flex items-center gap-2"><Code2 className="size-4 text-indigo-600" />My Code Styles</h1>
+      <main className="flex min-h-0 flex-1 min-w-0 flex-col overflow-hidden pb-[calc(3.5rem+env(safe-area-inset-bottom,0px))] lg:pb-0">
+        <header className="shrink-0 border-b border-slate-200/70 bg-white/85 shadow-[0_1px_0_rgba(15,23,42,0.04)] backdrop-blur-md">
+          <div className="flex flex-col gap-3 px-4 pb-3 pt-4 sm:px-6 sm:pb-4 sm:pt-5 lg:flex-row lg:items-start lg:justify-between">
+            <div className="min-w-0">
+              <h1 className="flex items-center gap-2 text-lg font-bold text-slate-900"><Code2 className="size-4 shrink-0 text-indigo-600" />My Code Styles</h1>
               <p className="text-[12.5px] text-slate-500">Manage, edit, and resubmit your custom subtitle styles.</p>
             </div>
-            <div className="flex items-center gap-2 shrink-0">
-              <div className="relative hidden md:block">
-                <Search className="size-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search your styles..." className="pl-8 h-9 w-72 text-[12.5px]" />
+            <div className="flex flex-wrap items-center gap-2 sm:shrink-0 lg:flex-nowrap">
+              <div className="relative w-full min-w-0 md:hidden">
+                <Search className="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-slate-400" />
+                <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search your styles…" className="h-9 w-full pl-8 text-[12.5px]" />
               </div>
-              <Button variant="outline" size="sm" className="h-9"><Filter className="size-3.5" />Filters</Button>
-              <Button size="sm" onClick={() => router.push("/styles/code/new")} disabled={!user} className="h-9 bg-gradient-to-r from-indigo-600 to-fuchsia-600 hover:from-indigo-700 hover:to-fuchsia-700 text-white"><Plus className="size-3.5" />Create New</Button>
+              <Button size="sm" onClick={() => router.push("/styles/code/new")} disabled={!user} className="h-9 shrink-0 bg-gradient-to-r from-indigo-600 to-fuchsia-600 hover:from-indigo-700 hover:to-fuchsia-700 text-white"><Plus className="size-3.5" />Create New</Button>
             </div>
           </div>
           <div className="h-px bg-slate-200" />
-          <nav className="flex items-center gap-1 px-6">
+          <nav className="-mb-px grid grid-cols-2 gap-1 border-b border-slate-200 px-4 sm:flex sm:flex-nowrap sm:items-center sm:gap-1 sm:px-6">
             {TABS.map((t) => { const active = tab === t.id; return (
-              <button key={t.id} type="button" onClick={() => setTab(t.id)} className={cn("inline-flex items-center gap-1.5 px-3 py-2.5 text-[12.5px] font-medium border-b-2 -mb-px transition-colors", active ? "border-indigo-600 text-indigo-700" : "border-transparent text-slate-500 hover:text-slate-800")}>{t.label}</button>
+              <button key={t.id} type="button" onClick={() => setTab(t.id)} className={cn("inline-flex min-h-[44px] items-center justify-center border-b-2 px-2 py-2.5 text-center text-[11px] font-medium transition-colors sm:min-h-0 sm:justify-start sm:whitespace-nowrap sm:px-3 sm:text-[12.5px]", active ? "border-indigo-600 text-indigo-700" : "border-transparent text-slate-500 hover:text-slate-800")}>{t.label}</button>
             ); })}
           </nav>
         </header>
-        <ScrollArea className="flex-1 min-h-0">
-          <div className="px-6 py-5 space-y-4">
+        <ScrollArea className="min-h-0 flex-1">
+          <div className="space-y-4 px-4 py-4 sm:px-6 sm:py-5">
             {!authLoading && !user ? (
               <div className="rounded-xl border border-dashed border-slate-300 bg-white p-10 text-center">
                 <LockKeyhole className="size-6 mx-auto text-slate-400" />
@@ -142,8 +141,8 @@ export default function MyCodeStylesPage() {
                   </div>
                 )}
                 {visible.length > 0 && (
-                  <div className="flex items-center justify-between pt-2">
-                    <p className="text-[12px] text-slate-500">Showing {(page - 1) * PAGE_SIZE + 1} to {Math.min(page * PAGE_SIZE, visible.length)} of {visible.length} styles</p>
+                  <div className="flex flex-col gap-3 pt-2 sm:flex-row sm:items-center sm:justify-between">
+                    <p className="text-center text-[12px] text-slate-500 sm:text-left">Showing {(page - 1) * PAGE_SIZE + 1} to {Math.min(page * PAGE_SIZE, visible.length)} of {visible.length} styles</p>
                     <Pagination page={page} totalPages={totalPages} onChange={setPage} />
                   </div>
                 )}
