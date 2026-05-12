@@ -26,7 +26,7 @@ function AuthPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, loading: authLoading, signInWithOAuth } = useAuth();
-  const [busy, setBusy] = React.useState<"google" | "twitter" | null>(null);
+  const [busy, setBusy] = React.useState<"google" | "x" | null>(null);
   const [error, setError] = React.useState<string | null>(null);
 
   const redirectTo = searchParams.get("redirectTo") || "/";
@@ -44,7 +44,7 @@ function AuthPageContent() {
     }
   }, [authLoading, user, router, redirectTo]);
 
-  async function handleOAuth(provider: "google" | "twitter") {
+  async function handleOAuth(provider: "google" | "x") {
     setBusy(provider);
     setError(null);
     try {
@@ -109,15 +109,17 @@ function AuthPageContent() {
               variant="outline"
               className="h-11 w-full justify-center gap-2 border-slate-200 font-semibold"
               disabled={busy !== null}
-              onClick={() => handleOAuth("twitter")}
+              onClick={() => handleOAuth("x")}
             >
-              {busy === "twitter" ? <Loader2 className="size-4 animate-spin" /> : null}
+              {busy === "x" ? <Loader2 className="size-4 animate-spin" /> : null}
               <XGlyph />
               Continue with X
             </Button>
 
             <p className="text-center text-[10px] leading-relaxed text-slate-400">
-              Configure Google and X (Twitter) in the Supabase dashboard. Add your site URL and{" "}
+              Configure Google and{" "}
+              <span className="font-semibold text-slate-600">X (OAuth 2.0)</span> in the Supabase dashboard (not
+              the legacy Twitter provider). Add your site URL and{" "}
               <code className="rounded bg-slate-100 px-1 py-0.5 text-[9px] text-slate-600">
                 {typeof window !== "undefined" ? window.location.origin : ""}/auth/callback
               </code>{" "}

@@ -4,7 +4,7 @@ import * as React from "react";
 import { apiGetUser, apiSignOut, type AuthUser } from "@/lib/api";
 import { createBrowserSupabaseClient } from "@/lib/supabase/browser";
 
-export type OAuthProviderId = "google" | "twitter";
+export type OAuthProviderId = "google" | "x";
 
 type AuthContextValue = {
   user: AuthUser | null;
