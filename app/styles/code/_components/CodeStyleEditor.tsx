@@ -25,6 +25,7 @@ import {
   Pause,
   Play,
   Plus,
+  RotateCcw,
   Save,
   Send,
   SkipBack,
@@ -347,6 +348,20 @@ export function CodeStyleEditor({mode, initialStyle}: CodeStyleEditorProps) {
     }
   };
 
+  const handleResetCode = () => {
+    const nextCode = isEdit && initialStyle?.code ? initialStyle.code : STARTER_CODE;
+    setCode(nextCode);
+    setError(null);
+    setPublishError(null);
+    if (!isEdit) {
+      try {
+        window.localStorage.removeItem(STORAGE_KEY);
+      } catch {
+        // ignore
+      }
+    }
+  };
+
   async function handlePublish() {
     if (!user) return;
     const result = compileStyleCode(code);
@@ -591,9 +606,20 @@ export function CodeStyleEditor({mode, initialStyle}: CodeStyleEditorProps) {
           <section className="flex min-h-0 shrink-0 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm max-lg:basis-[calc((100%-0.5rem)/2)] sm:max-lg:basis-[calc((100%-0.75rem)/2)] lg:col-start-1 lg:row-start-1 lg:h-auto lg:max-h-none lg:min-h-0 lg:shrink lg:flex-1">
             <div className="flex h-11 shrink-0 items-center justify-between border-b border-slate-100 px-4">
               <h2 className="text-sm font-semibold text-slate-800">Style Component</h2>
-              <span className="rounded bg-slate-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-slate-500">
-                TSX
-              </span>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={handleResetCode}
+                  className="inline-flex size-7 items-center justify-center rounded-md text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
+                  aria-label="Reset code"
+                  title="Reset code"
+                >
+                  <RotateCcw className="size-3.5" />
+                </button>
+                <span className="rounded bg-slate-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-slate-500">
+                  TSX
+                </span>
+              </div>
             </div>
 
             <div className="min-h-0 flex-1 overflow-auto bg-[#1e1e2e]">

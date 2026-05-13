@@ -12,7 +12,16 @@ export function AuthorByline({
 }) {
   return (
     <span className={cn("inline-flex min-w-0 items-center gap-1", className)}>
-      <span className="truncate">by {style.authorName}</span>
+      <span className="shrink-0">by</span>
+      <a
+        href="https://x.com/found_umair"
+        target="_blank"
+        rel="noreferrer"
+        onClick={(event) => event.stopPropagation()}
+        className="truncate transition-colors hover:text-indigo-600 hover:underline"
+      >
+        {style.authorName}
+      </a>
       {style.authorIsAdmin ? (
         <img
           src="/badge.png"
