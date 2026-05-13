@@ -6,6 +6,7 @@ import {Player, type PlayerRef} from "@remotion/player";
 import {Check, Loader2, Play, RefreshCcw, ShieldCheck, X} from "lucide-react";
 import {AuthStatus} from "@/components/auth/AuthStatus";
 import {AppSidebar} from "@/components/layout/AppSidebar";
+import {AuthorByline} from "@/components/styles/AuthorByline";
 import {CommunityStylePreview} from "@/components/styles/CommunityStylePreview";
 import {Button} from "@/components/ui/button";
 import {Card} from "@/components/ui/card";
@@ -108,7 +109,7 @@ export default function StyleApprovalsPage() {
                   <button key={style.id} type="button" onClick={() => setSelectedId(style.id)} className={cn("w-full text-left rounded-md border px-3 py-2 transition-colors", active ? "border-indigo-300 bg-indigo-50/60 ring-1 ring-indigo-200" : "border-slate-200 bg-white hover:bg-slate-50")}>
                     <div className="flex items-start justify-between gap-2"><span className="text-[13px] font-semibold text-slate-800 truncate">{style.name}</span><span className="text-[9px] font-bold uppercase tracking-wider rounded-full bg-amber-100 text-amber-700 px-1.5 py-0.5 shrink-0">{style.kind}</span></div>
                     <p className="text-[11px] text-slate-500 line-clamp-2 mt-0.5">{style.description || "No description provided."}</p>
-                    <p className="text-[10px] text-slate-400 mt-1">by {style.authorName}</p>
+                    <AuthorByline style={style} className="mt-1 max-w-full text-[10px] text-slate-400" />
                   </button>); })}
               </div>
             </ScrollArea>
@@ -140,8 +141,9 @@ function PreviewPanel({style, onApprove, onReject, working}: {style: CommunitySu
       <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-3 py-2 sm:px-4">
         <div className="min-w-0">
           <div className="truncate text-[13px] font-semibold text-slate-800">{style.name}</div>
-          <div className="text-[10px] text-slate-500">
-            {style.kind === "code" ? "Code style" : "Settings style"} · by {style.authorName}
+          <div className="flex items-center gap-1 text-[10px] text-slate-500">
+            <span>{style.kind === "code" ? "Code style" : "Settings style"} ·</span>
+            <AuthorByline style={style} />
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-2">

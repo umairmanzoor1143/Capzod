@@ -40,10 +40,14 @@ export async function fetchApprovedStyles(
   const importedIds = userId
     ? await fetchImportedStyleIds(supabase, userId)
     : new Set<string>();
-  return ((data || []) as SubtitleStyleRow[]).map((row) =>
+  const rows = (data || []) as SubtitleStyleRow[];
+  const adminAuthorIds = await fetchAdminAuthorIds(supabase, rows, userId);
+
+  return rows.map((row) =>
     normalizeCommunityStyle(row, {
       imported: importedIds.has(row.id),
       mine: row.user_id === userId,
+      authorIsAdmin: adminAuthorIds.has(row.user_id),
     })
   );
 }
@@ -91,18 +95,27 @@ export async function fetchImportedStyles(
 
   if (error) throw error;
 
-  return ((data || []) as ImportRow[]).flatMap((row) => {
+  const rows = ((data || []) as ImportRow[]).flatMap((row) => {
     const styleRow = Array.isArray(row.subtitle_styles)
       ? row.subtitle_styles[0]
       : row.subtitle_styles;
     if (!styleRow) return [];
+    return [{ row, styleRow }];
+  });
+  const adminAuthorIds = await fetchAdminAuthorIds(
+    supabase,
+    rows.map(({ styleRow }) => styleRow),
+    userId
+  );
 
-    return normalizeCommunityStyle(styleRow, {
+  return rows.map(({ row, styleRow }) =>
+    normalizeCommunityStyle(styleRow, {
       importedAt: row.imported_at,
       imported: true,
       mine: styleRow.user_id === userId,
-    });
-  });
+      authorIsAdmin: adminAuthorIds.has(styleRow.user_id),
+    })
+  );
 }
 
 export async function fetchMyStyles(
@@ -117,15 +130,22 @@ export async function fetchMyStyles(
 
   if (error) throw error;
 
-  return ((data || []) as SubtitleStyleRow[]).map((row) =>
+  const rows = (data || []) as SubtitleStyleRow[];
+  const adminAuthorIds = await fetchAdminAuthorIds(supabase, rows, userId);
+
+  return rows.map((row) =>
     normalizeCommunityStyle(row, {
       imported: true,
       mine: true,
+      authorIsAdmin: adminAuthorIds.has(row.user_id),
     })
   );
 }
 
-export async function fetchPendingStyles(supabase: SupabaseClient) {
+export async function fetchPendingStyles(
+  supabase: SupabaseClient,
+  userId?: string
+) {
   const { data, error } = await supabase
     .from("subtitle_styles")
     .select("*")
@@ -134,8 +154,13 @@ export async function fetchPendingStyles(supabase: SupabaseClient) {
 
   if (error) throw error;
 
-  return ((data || []) as SubtitleStyleRow[]).map((row) =>
-    normalizeCommunityStyle(row)
+  const rows = (data || []) as SubtitleStyleRow[];
+  const adminAuthorIds = await fetchAdminAuthorIds(supabase, rows, userId);
+
+  return rows.map((row) =>
+    normalizeCommunityStyle(row, {
+      authorIsAdmin: adminAuthorIds.has(row.user_id),
+    })
   );
 }
 
@@ -297,6 +322,46 @@ export async function fetchImportedStyleIds(
   return new Set(
     ((data || []) as { style_id: string }[]).map((row) => row.style_id)
   );
+}
+
+async function fetchAdminAuthorIds(
+  supabase: SupabaseClient,
+  rows: SubtitleStyleRow[],
+  currentUserId?: string
+) {
+  const authorIds = Array.from(
+    new Set(rows.map((row) => row.user_id).filter(Boolean))
+  );
+  const adminIds = new Set<string>();
+  if (authorIds.length === 0) return adminIds;
+
+  const [
+    { data: rpcAdminIds },
+    { data: styleAdmins },
+    { data: profiles },
+  ] = await Promise.all([
+    supabase.rpc("style_admin_author_ids", { author_ids: authorIds }),
+    supabase.from("style_admins").select("user_id").in("user_id", authorIds),
+    supabase.from("user_profiles").select("id, is_admin").in("id", authorIds),
+  ]);
+
+  ((rpcAdminIds || []) as { user_id: string }[]).forEach((row) => {
+    adminIds.add(row.user_id);
+  });
+  ((styleAdmins || []) as { user_id: string }[]).forEach((row) => {
+    adminIds.add(row.user_id);
+  });
+  ((profiles || []) as { id: string; is_admin: boolean }[]).forEach((row) => {
+    if (row.is_admin) adminIds.add(row.id);
+  });
+
+  if (currentUserId && authorIds.includes(currentUserId)) {
+    if (await isCurrentUserAdmin(supabase, currentUserId)) {
+      adminIds.add(currentUserId);
+    }
+  }
+
+  return adminIds;
 }
 
 function getDisplayName(user: User) {

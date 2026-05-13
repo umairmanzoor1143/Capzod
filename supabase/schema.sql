@@ -130,6 +130,32 @@ create policy "admins read own admin row"
 on public.style_admins for select
 using (auth.uid() = user_id);
 
+create or replace function public.style_admin_author_ids(author_ids uuid[])
+returns table (user_id uuid)
+language sql
+security definer
+stable
+set search_path = public
+as $$
+  select distinct candidate.user_id
+  from unnest(author_ids) as candidate(user_id)
+  where exists (
+    select 1
+    from public.style_admins admin
+    where admin.user_id = candidate.user_id
+  )
+  or exists (
+    select 1
+    from public.user_profiles profile
+    where profile.id = candidate.user_id
+      and profile.is_admin = true
+  );
+$$;
+
+grant execute on function public.style_admin_author_ids(uuid[]) to anon;
+grant execute on function public.style_admin_author_ids(uuid[]) to authenticated;
+grant execute on function public.style_admin_author_ids(uuid[]) to service_role;
+
 -- Example after you know the admin user's auth id:
 -- insert into public.style_admins (user_id) values ('00000000-0000-0000-0000-000000000000');
 

@@ -24,6 +24,7 @@ export type CommunitySubtitleStyle = {
   status: StyleApprovalStatus;
   authorId: string;
   authorName: string;
+  authorIsAdmin?: boolean;
   createdAt: string;
   updatedAt?: string;
   importedAt?: string;
@@ -83,7 +84,12 @@ export function getCommunityStylePreviewClass(style: CommunitySubtitleStyle) {
 
 export function normalizeCommunityStyle(
   row: SubtitleStyleRow,
-  options?: { importedAt?: string; imported?: boolean; mine?: boolean }
+  options?: {
+    importedAt?: string;
+    imported?: boolean;
+    mine?: boolean;
+    authorIsAdmin?: boolean;
+  }
 ): CommunitySubtitleStyle {
   const baseStyle = isBuiltInSubtitleStyleId(row.base_style)
     ? row.base_style
@@ -103,6 +109,7 @@ export function normalizeCommunityStyle(
     status,
     authorId: row.user_id,
     authorName: row.author_name || "Creator",
+    authorIsAdmin: options?.authorIsAdmin ?? false,
     createdAt: row.created_at,
     updatedAt: row.updated_at || undefined,
     importedAt: options?.importedAt,

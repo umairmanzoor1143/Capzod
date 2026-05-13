@@ -66,6 +66,15 @@ function formatDuration(seconds: number) {
   return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
 }
 
+function base64ToBytes(value: string) {
+  const binary = window.atob(value);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes;
+}
+
 export default function Home() {
   const initialSubtitles = useMemo(() => createTimelineFromText(sampleScript).chunks, []);
   const [subtitles, setSubtitles] = useState<SubtitleItem[]>(initialSubtitles);
@@ -261,6 +270,14 @@ export default function Home() {
   }, [canExport]);
 
   useEffect(() => {
+    return () => {
+      if (exportUrl?.startsWith("blob:")) {
+        URL.revokeObjectURL(exportUrl);
+      }
+    };
+  }, [exportUrl]);
+
+  useEffect(() => {
     const mq = window.matchMedia("(min-width: 1024px)");
     const onChange = () => {
       if (mq.matches) setMobileEditorOpen(false);
@@ -336,16 +353,21 @@ export default function Home() {
               } else if (evt.type === "done") {
                 setExportProgress(1);
                 setExportStage("done");
-                setExportUrl(evt.url);
-                // Trigger an immediate browser download.
-                if (typeof evt.url === "string") {
-                  const a = document.createElement("a");
-                  a.href = evt.url;
-                  a.download = evt.filename || evt.url.split("/").pop() || "";
-                  document.body.appendChild(a);
-                  a.click();
-                  a.remove();
+                if (typeof evt.data !== "string") {
+                  throw new Error("Rendered video was missing from the response");
                 }
+                const blob = new Blob([base64ToBytes(evt.data)], {
+                  type: typeof evt.mimeType === "string" ? evt.mimeType : "video/mp4",
+                });
+                const url = URL.createObjectURL(blob);
+                setExportUrl(url);
+                // Trigger an immediate browser download.
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = typeof evt.filename === "string" ? evt.filename : "subtitle-video.mp4";
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
               } else if (evt.type === "error") {
                 throw new Error(evt.error || "Render failed");
               }

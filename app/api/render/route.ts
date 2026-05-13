@@ -5,7 +5,7 @@ import {NextResponse} from "next/server";
 import {spawn} from "node:child_process";
 import os from "node:os";
 import path from "node:path";
-import {mkdir, rename, stat, unlink} from "node:fs/promises";
+import {mkdtemp, readFile, rename, rm, stat, unlink} from "node:fs/promises";
 import {
   sanitizeCustomStyleConfig,
   sanitizeStyleCode,
@@ -138,7 +138,7 @@ export async function POST(request: Request) {
   const isTransparent = background === "transparent";
   const codec: "h264" | "prores" = isTransparent ? "prores" : "h264";
   const ext = isTransparent ? "mov" : "mp4";
-  const rendersDir = path.join(process.cwd(), "public", "renders");
+  const rendersDir = await mkdtemp(path.join(os.tmpdir(), "subtitle-render-"));
   const filename = `subtitle-${Date.now()}.${ext}`;
   const outputLocation = path.join(rendersDir, filename);
 
@@ -149,7 +149,6 @@ export async function POST(request: Request) {
         controller.enqueue(encoder.encode(JSON.stringify(event) + "\n"));
       };
       try {
-        await mkdir(rendersDir, {recursive: true});
         send({type: "stage", stage: "bundling", progress: 0});
 
         const bundled = await getBundle();
@@ -207,8 +206,7 @@ export async function POST(request: Request) {
           }
         });
 
-        let finalUrl = `/renders/${filename}`;
-        let finalFilename = filename;
+        const finalFilename = filename;
 
         if (isTransparent) {
           // Compress ProRes 4444 → HEVC with alpha (.mov / hvc1).
@@ -245,10 +243,12 @@ export async function POST(request: Request) {
           }
         }
 
+        const video = await readFile(outputLocation);
         send({
           type: "done",
           progress: 1,
-          url: finalUrl,
+          data: video.toString("base64"),
+          mimeType: isTransparent ? "video/quicktime" : "video/mp4",
           filename: finalFilename,
           format
         });
@@ -259,6 +259,7 @@ export async function POST(request: Request) {
           error: error instanceof Error ? error.message : "Unable to render video"
         });
       } finally {
+        await rm(rendersDir, {recursive: true, force: true}).catch(() => undefined);
         controller.close();
       }
     }

@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "next lint",
     "remotion:studio": "remotion studio remotion/index.ts",
-    "render:sample": "remotion render remotion/index.ts SubtitleVideo public/renders/sample.mp4 --props='{\"text\":\"Making money is hard.\\nBut staying broke is harder.\\nDiscipline today.\\nFreedom tomorrow.\",\"style\":\"viral-tiktok\",\"background\":\"black\"}'"
+    "render:sample": "remotion render remotion/index.ts SubtitleVideo /tmp/subly-sample.mp4 --props='{\"text\":\"Making money is hard.\\nBut staying broke is harder.\\nDiscipline today.\\nFreedom tomorrow.\",\"style\":\"viral-tiktok\",\"background\":\"black\"}'"
   },
   "dependencies": {
     "@babel/standalone": "^7.29.4",

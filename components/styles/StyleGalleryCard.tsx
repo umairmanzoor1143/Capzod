@@ -6,6 +6,7 @@ import {Check, Download, Eye, Loader2, Pencil, Play, Trash2} from "lucide-react"
 import {Badge} from "@/components/ui/badge";
 import {Button} from "@/components/ui/button";
 import {Card} from "@/components/ui/card";
+import {AuthorByline} from "@/components/styles/AuthorByline";
 import type {CommunitySubtitleStyle} from "@/lib/community-styles";
 import {apiRecordStyleView} from "@/lib/api";
 import {cn} from "@/lib/utils";
@@ -93,10 +94,7 @@ export function StyleGalleryCard({
       <div className="space-y-2 p-3">
         <div className="min-w-0">
           <h3 className="truncate text-sm font-semibold text-slate-800">{style.name}</h3>
-          <p className="flex items-center gap-1 truncate text-[11px] text-slate-500">
-            by {style.authorName}
-            <Check className="size-3 text-indigo-500" />
-          </p>
+          <AuthorByline style={style} className="max-w-full text-[11px] text-slate-500" />
         </div>
 
         <div className="flex items-center justify-between gap-2 pt-1">

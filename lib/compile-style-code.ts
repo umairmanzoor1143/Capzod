@@ -11,7 +11,8 @@ export type CompileResult =
 
 /**
  * Compile a JSX snippet that returns (or default-exports) a React component.
- * The user has access to React, Remotion, and standard hooks in scope.
+ * The user has access to React, Remotion, common Remotion helpers, and
+ * supported named imports from "react" and "remotion" in scope.
  *
  * Accepted shapes:
  *   1. A bare arrow expression:  ({chunk}) => <div/>
@@ -29,10 +30,13 @@ export function compileStyleCode(code: string): CompileResult {
     return {ok: false, error: "Editor is empty."};
   }
 
+  const imports = collectSupportedImports(trimmed);
+
   // Normalize common module syntax that won't survive new Function.
-  let prepared = trimmed
-    .replace(/export\s+default\s+/g, "return ")
-    .replace(/^\s*import[^;]+;?\s*$/gm, "");
+  let prepared = stripSupportedImports(trimmed).replace(
+    /export\s+default\s+/g,
+    "return "
+  );
 
   // If the code is a pure expression (starts with `(` or an arrow), wrap it.
   const looksLikeExpression =
@@ -76,13 +80,7 @@ export function compileStyleCode(code: string): CompileResult {
     factory = new Function(
       "React",
       "Remotion",
-      "useCurrentFrame",
-      "useVideoConfig",
-      "interpolate",
-      "spring",
-      "AbsoluteFill",
-      "Sequence",
-      `"use strict";\n${compiled}`
+      `"use strict";\n${buildScopePrelude(imports)}\n${compiled}`
     ) as (...args: unknown[]) => unknown;
   } catch (err) {
     return {ok: false, error: formatError(err)};
@@ -92,13 +90,7 @@ export function compileStyleCode(code: string): CompileResult {
   try {
     result = factory(
       React,
-      Remotion,
-      Remotion.useCurrentFrame,
-      Remotion.useVideoConfig,
-      Remotion.interpolate,
-      Remotion.spring,
-      Remotion.AbsoluteFill,
-      Remotion.Sequence
+      Remotion
     );
   } catch (err) {
     return {ok: false, error: formatError(err)};
@@ -113,6 +105,106 @@ export function compileStyleCode(code: string): CompileResult {
   }
 
   return {ok: true, Component: result as CodeStyleComponent, warnings: []};
+}
+
+type ImportBinding = {
+  moduleName: "react" | "remotion";
+  imported: string;
+  local: string;
+};
+
+const COMMON_REMOTION_LOCALS = [
+  "AbsoluteFill",
+  "Audio",
+  "Easing",
+  "Img",
+  "Sequence",
+  "Video",
+  "delayRender",
+  "continueRender",
+  "interpolate",
+  "interpolateColors",
+  "random",
+  "spring",
+  "staticFile",
+  "useCurrentFrame",
+  "useCurrentScale",
+  "useVideoConfig",
+];
+
+const COMMON_REACT_LOCALS = [
+  "Fragment",
+  "useCallback",
+  "useEffect",
+  "useMemo",
+  "useRef",
+  "useState",
+];
+
+function stripSupportedImports(code: string) {
+  return code
+    .replace(/^\s*import\s+type\s+[^;]+;?\s*$/gm, "")
+    .replace(/^\s*import\s+[^;]+from\s+["'](?:react|remotion)["'];?\s*$/gm, "")
+    .replace(/^\s*import\s+["'](?:react|remotion)["'];?\s*$/gm, "");
+}
+
+function collectSupportedImports(code: string): ImportBinding[] {
+  const bindings: ImportBinding[] = [];
+  const importRegex =
+    /^\s*import\s+(.+?)\s+from\s+["'](react|remotion)["'];?\s*$/gm;
+
+  for (const match of code.matchAll(importRegex)) {
+    const clause = match[1]?.trim();
+    const moduleName = match[2] as "react" | "remotion" | undefined;
+    if (!clause || !moduleName) continue;
+
+    const named = clause.match(/\{([^}]+)\}/);
+    if (named) {
+      for (const rawPart of named[1].split(",")) {
+        const part = rawPart.trim();
+        if (!part) continue;
+        const [importedRaw, localRaw] = part.split(/\s+as\s+/i);
+        const imported = importedRaw.trim();
+        const local = (localRaw || imported).trim();
+        if (isIdentifier(imported) && isIdentifier(local)) {
+          bindings.push({moduleName, imported, local});
+        }
+      }
+    }
+  }
+
+  return bindings;
+}
+
+function buildScopePrelude(imports: ImportBinding[]) {
+  const declared = new Set<string>(["React", "Remotion"]);
+  const lines: string[] = [];
+
+  for (const name of COMMON_REMOTION_LOCALS) {
+    if (!declared.has(name)) {
+      declared.add(name);
+      lines.push(`const ${name} = Remotion.${name};`);
+    }
+  }
+  for (const name of COMMON_REACT_LOCALS) {
+    if (!declared.has(name)) {
+      declared.add(name);
+      lines.push(`const ${name} = React.${name};`);
+    }
+  }
+
+  for (const binding of imports) {
+    if (declared.has(binding.local)) continue;
+    declared.add(binding.local);
+    const source = binding.moduleName === "remotion" ? "Remotion" : "React";
+    lines.push(`const ${binding.local} = ${source}.${binding.imported};`);
+  }
+
+  return lines.join("\n");
+}
+
+function isIdentifier(value: string) {
+  return /^[A-Za-z_$][\w$]*$/.test(value);
 }
 
 function formatError(err: unknown): string {

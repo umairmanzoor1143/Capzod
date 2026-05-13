@@ -5,6 +5,7 @@ import { Check, Download, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { AuthorByline } from "@/components/styles/AuthorByline";
 import type { CommunitySubtitleStyle } from "@/lib/community-styles";
 import { cn } from "@/lib/utils";
 
@@ -72,9 +73,7 @@ export function CommunityStylePreview({
               {style.description || "A custom creator subtitle style."}
             </p>
           )}
-          <p className="text-[10px] text-slate-400 mt-1 truncate">
-            by {style.authorName}
-          </p>
+          <AuthorByline style={style} className="mt-1 max-w-full text-[10px] text-slate-400" />
         </div>
 
         {active && (

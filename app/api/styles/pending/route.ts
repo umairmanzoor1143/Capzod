@@ -24,7 +24,7 @@ export async function GET() {
       );
     }
 
-    const styles = await fetchPendingStyles(supabase);
+    const styles = await fetchPendingStyles(supabase, user.id);
     return NextResponse.json({ styles });
   } catch (err) {
     return NextResponse.json(

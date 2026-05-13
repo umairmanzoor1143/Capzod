@@ -3,6 +3,7 @@
 import * as React from "react";
 import {
   AbsoluteFill,
+  Easing,
   interpolate,
   spring,
   useCurrentFrame,
@@ -371,6 +372,7 @@ class UserErrorBoundary extends React.Component<
 
 // Re-export Remotion helpers so /styles/code can pass them into the user scope.
 export const codeStyleHelpers = {
+  Easing,
   interpolate,
   spring,
   useCurrentFrame,
