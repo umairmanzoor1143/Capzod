@@ -11,7 +11,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Subly - Animated Subtitle Video Generator",
+  title: "Capzod - Animated Subtitle Video Generator",
   description: "Convert scripts into animated subtitle videos with Remotion."
 };
 

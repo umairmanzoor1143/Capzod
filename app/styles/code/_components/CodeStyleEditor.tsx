@@ -15,6 +15,7 @@ import "prismjs/components/prism-tsx";
 import {
   AlertCircle,
   ArrowLeft,
+  Check,
   CheckCircle2,
   ChevronDown,
   Code2,
@@ -469,96 +470,23 @@ export function CodeStyleEditor({mode, initialStyle}: CodeStyleEditorProps) {
           </div>
         </header>
 
-        {/* Body: mobile = 50/50 code + preview (equal flex), then metadata; lg = 3-column grid */}
-        <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden p-2 sm:gap-3 sm:p-3 lg:grid lg:min-h-0 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)_300px] lg:overflow-hidden">
-          <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden lg:contents">
-          {/* LEFT: code editor */}
-          <section className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm lg:min-h-0">
-            <div className="h-11 px-4 border-b border-slate-100 flex items-center justify-between shrink-0">
-              <h2 className="text-sm font-semibold text-slate-800">Style Component</h2>
-              <span className="text-[10px] font-mono uppercase tracking-wider text-slate-500 bg-slate-100 px-2 py-0.5 rounded">
-                TSX
-              </span>
-            </div>
-
-            <div className="flex-1 min-h-0 overflow-auto bg-[#1e1e2e]">
-              <Editor
-                value={code}
-                onValueChange={setCode}
-                highlight={(c) => highlight(c, languages.tsx, "tsx")}
-                padding={16}
-                textareaId="style-code-editor"
-                textareaClassName="speakzy-code-textarea"
-                preClassName="speakzy-code-pre"
-                style={{
-                  fontFamily:
-                    'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace',
-                  fontSize: 13,
-                  lineHeight: 1.6,
-                  minHeight: "100%",
-                  color: "#cdd6f4",
-                  caretColor: "#a78bfa",
-                }}
-              />
-            </div>
-
-            <div className="flex min-h-9 flex-wrap items-center justify-between gap-x-2 gap-y-1 border-t border-slate-200 bg-white px-3 py-1.5 text-[11px] text-slate-500 sm:h-9 sm:flex-nowrap sm:px-4">
-              <div className="flex min-w-0 flex-wrap items-center gap-2 sm:gap-3">
-                <button
-                  type="button"
-                  onClick={() => {
-                    const r = compileStyleCode(code);
-                    if (r.ok) setError(null);
-                    else setError(r.error);
-                  }}
-                  className="inline-flex shrink-0 items-center gap-1.5 hover:text-slate-700"
-                >
-                  <AlertCircle className="size-3.5" />
-                  <span className="hidden sm:inline">Check for errors</span>
-                </button>
-                <span className="flex items-center gap-1.5">
-                  {error ? (
-                    <>
-                      <span className="size-1.5 rounded-full bg-rose-500" />
-                      <span className="text-rose-600 font-medium">Compile error</span>
-                    </>
-                  ) : (
-                    <>
-                      <CheckCircle2 className="size-3.5 text-emerald-600" />
-                      <span className="text-emerald-700 font-medium">No errors found</span>
-                    </>
-                  )}
-                </span>
-              </div>
-              <div className="hidden shrink-0 items-center gap-3 sm:flex">
-                <span>Spaces: 2</span>
-                <span>TypeScript React</span>
-              </div>
-            </div>
-            {error && (
-              <div className="px-4 py-2 text-[11.5px] text-rose-700 font-mono bg-rose-50 border-t border-rose-100 max-h-32 shrink-0">
-                <ScrollArea className="max-h-28">
-                  <pre className="whitespace-pre-wrap break-words pr-3">{error}</pre>
-                </ScrollArea>
-              </div>
-            )}
-          </section>
-
-          {/* CENTER: preview */}
-          <section className="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden lg:min-h-0">
-            <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden flex flex-col flex-1 min-h-0">
-              <div className="px-4 h-11 border-b border-slate-100 flex items-center justify-between shrink-0">
+        {/* Body: mobile = preview → code (equal flex share, min heights) → metadata; lg = grid code | preview | meta */}
+        <div className="scroll-thin flex min-h-0 flex-1 flex-col gap-2 overflow-x-hidden overflow-y-auto p-2 sm:gap-3 sm:p-3 lg:grid lg:min-h-0 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)_300px] lg:gap-3 lg:overflow-hidden">
+          {/* CENTER on desktop, FIRST on mobile — Live preview */}
+          <section className="flex min-h-0 shrink-0 flex-col gap-2 overflow-hidden max-lg:basis-[calc((100%-0.5rem)/2)] sm:max-lg:basis-[calc((100%-0.75rem)/2)] lg:col-start-2 lg:row-start-1 lg:h-auto lg:max-h-none lg:min-h-0 lg:shrink lg:flex-1">
+            <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+              <div className="flex h-11 shrink-0 items-center justify-between border-b border-slate-100 px-4">
                 <div className="flex items-center gap-2 text-sm font-semibold text-slate-800">
                   Live Preview
                   <span className="inline-flex items-center gap-1 text-[10px] font-medium text-emerald-700">
-                    <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    <span className="size-1.5 animate-pulse rounded-full bg-emerald-500" />
                     Auto-updates
                   </span>
                 </div>
               </div>
 
               <div
-                className="relative flex-1 min-h-0 w-full"
+                className="relative min-h-0 flex-1 w-full"
                 style={{
                   backgroundColor: "#ffffff",
                   backgroundImage:
@@ -588,18 +516,18 @@ export function CodeStyleEditor({mode, initialStyle}: CodeStyleEditorProps) {
                 </div>
               </div>
 
-              <div className="flex shrink-0 flex-col gap-2 border-t border-slate-100 px-3 py-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3 sm:px-4">
-                <span className="w-full font-mono text-[11px] text-slate-500 tabular-nums sm:w-auto sm:min-w-[88px]">
+              <div className="grid shrink-0 grid-cols-[auto_auto_minmax(0,1fr)] items-center gap-x-2 gap-y-1 border-t border-slate-100 px-3 py-1.5 sm:flex sm:flex-wrap sm:gap-3 sm:px-4 sm:py-2">
+                <span className="w-auto min-w-[70px] font-mono text-[10px] text-slate-500 tabular-nums sm:min-w-[88px] sm:text-[11px]">
                   {formatTime(currentSecond)} / {formatTime(totalSecond)}
                 </span>
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-0.5 sm:gap-1">
                   <IconBtn onClick={() => seekRel(-30)}>
                     <SkipBack className="size-3.5" />
                   </IconBtn>
                   <button
                     type="button"
                     onClick={togglePlay}
-                    className="size-9 rounded-full bg-indigo-600 hover:bg-indigo-700 text-white flex items-center justify-center shadow-sm"
+                    className="flex size-9 items-center justify-center rounded-full bg-indigo-600 text-white shadow-sm hover:bg-indigo-700"
                   >
                     {playing ? <Pause className="size-4" /> : <Play className="size-4 ml-0.5" />}
                   </button>
@@ -615,7 +543,7 @@ export function CodeStyleEditor({mode, initialStyle}: CodeStyleEditorProps) {
                   onChange={(e) => seekAbs(Number(e.target.value))}
                   className="min-w-0 flex-1 accent-indigo-600"
                 />
-                <div className="flex min-w-0 flex-1 flex-wrap items-center justify-center gap-2 sm:flex-1 sm:flex-nowrap sm:justify-end">
+                <div className="col-span-3 grid min-w-0 grid-cols-[minmax(0,1fr)_minmax(8rem,auto)] items-center gap-2 sm:flex sm:flex-1 sm:flex-nowrap sm:justify-end">
                   <div className="flex min-h-[32px] min-w-0 flex-1 items-stretch overflow-hidden rounded-md border border-slate-200 text-[10px] font-semibold sm:max-w-[200px] sm:flex-none">
                     <button
                       type="button"
@@ -659,9 +587,79 @@ export function CodeStyleEditor({mode, initialStyle}: CodeStyleEditorProps) {
             </div>
           </section>
 
-          </div>
-          {/* RIGHT: Metadata */}
-          <aside className="flex min-h-0 max-h-[38dvh] flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm sm:max-h-[42dvh] lg:max-h-none lg:min-h-0">
+          {/* LEFT on desktop, SECOND on mobile — Style component */}
+          <section className="flex min-h-0 shrink-0 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm max-lg:basis-[calc((100%-0.5rem)/2)] sm:max-lg:basis-[calc((100%-0.75rem)/2)] lg:col-start-1 lg:row-start-1 lg:h-auto lg:max-h-none lg:min-h-0 lg:shrink lg:flex-1">
+            <div className="flex h-11 shrink-0 items-center justify-between border-b border-slate-100 px-4">
+              <h2 className="text-sm font-semibold text-slate-800">Style Component</h2>
+              <span className="rounded bg-slate-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-slate-500">
+                TSX
+              </span>
+            </div>
+
+            <div className="min-h-0 flex-1 overflow-auto bg-[#1e1e2e]">
+              <Editor
+                value={code}
+                onValueChange={setCode}
+                highlight={(c) => highlight(c, languages.tsx, "tsx")}
+                padding={16}
+                textareaId="style-code-editor"
+                textareaClassName="speakzy-code-textarea"
+                preClassName="speakzy-code-pre"
+                style={{
+                  fontFamily:
+                    'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace',
+                  fontSize: 13,
+                  lineHeight: 1.6,
+                  minHeight: "100%",
+                  color: "#cdd6f4",
+                  caretColor: "#a78bfa",
+                }}
+              />
+            </div>
+
+            <div className="flex min-h-9 flex-wrap items-center justify-between gap-x-2 gap-y-1 border-t border-slate-200 bg-white px-3 py-1.5 text-[11px] text-slate-500 sm:h-9 sm:flex-nowrap sm:px-4">
+              <div className="flex min-w-0 flex-wrap items-center gap-2 sm:gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const r = compileStyleCode(code);
+                    if (r.ok) setError(null);
+                    else setError(r.error);
+                  }}
+                  className="inline-flex shrink-0 items-center gap-1.5 hover:text-slate-700"
+                >
+                  <AlertCircle className="size-3.5" />
+                  <span className="hidden sm:inline">Check for errors</span>
+                </button>
+                <span className="flex items-center gap-1.5">
+                  {error ? (
+                    <>
+                      <span className="size-1.5 rounded-full bg-rose-500" />
+                      <span className="font-medium text-rose-600">Compile error</span>
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="size-3.5 text-emerald-600" />
+                      <span className="font-medium text-emerald-700">No errors found</span>
+                    </>
+                  )}
+                </span>
+              </div>
+              <div className="hidden shrink-0 items-center gap-3 sm:flex">
+                <span>Spaces: 2</span>
+                <span>TypeScript React</span>
+              </div>
+            </div>
+            {error && (
+              <div className="max-h-32 shrink-0 border-t border-rose-100 bg-rose-50 px-4 py-2 font-mono text-[11.5px] text-rose-700">
+                <ScrollArea className="max-h-28">
+                  <pre className="whitespace-pre-wrap break-words pr-3">{error}</pre>
+                </ScrollArea>
+              </div>
+            )}
+          </section>
+          {/* RIGHT: Metadata — last on mobile, scrolls in remaining space */}
+          <aside className="flex min-h-0 shrink-0 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm max-lg:h-[min(42dvh,360px)] lg:col-start-3 lg:row-start-1 lg:max-h-none lg:min-h-0 lg:shrink lg:flex-1">
             <div className="h-11 px-4 border-b border-slate-100 flex items-center justify-between shrink-0">
               <h3 className="text-sm font-semibold text-slate-800">
                 {isEdit ? "Editing" : "Metadata"}
@@ -774,23 +772,120 @@ function Selectish({
   onChange: (v: string) => void;
   compact?: boolean;
 }) {
+  const [open, setOpen] = React.useState(false);
+  const rootRef = React.useRef<HTMLDivElement>(null);
+  const buttonId = React.useId();
+
+  const normalized = options.map((option) => {
+    const format = Object.values(FORMATS).find((item) => item.label === option);
+    return {
+      label: format ? format.label.replace(/\s+\(.+\)$/, "") : option,
+      value: option,
+      meta: format ? `${format.w}x${format.h}` : undefined,
+    };
+  });
+  const selected = normalized.find((option) => option.value === value) ?? normalized[0];
+
+  React.useEffect(() => {
+    if (!open) return;
+
+    const handlePointerDown = (event: PointerEvent) => {
+      if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [open]);
+
   return (
-    <div className="relative">
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
+    <div ref={rootRef} className="relative min-w-0">
+      <button
+        id={buttonId}
+        type="button"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        onClick={() => setOpen((current) => !current)}
         className={cn(
-          "appearance-none w-full rounded-md border border-slate-200 bg-white text-slate-800 pr-7 pl-2.5 outline-none focus:ring-2 focus:ring-indigo-200 hover:border-slate-300 transition-colors",
-          compact ? "h-7 text-[11px]" : "h-9 text-[12.5px]"
+          "flex w-full min-w-0 items-center justify-between gap-2 border bg-white text-left text-slate-800 shadow-sm outline-none transition-[border,box-shadow,background,color] hover:border-indigo-200 focus-visible:ring-2 focus-visible:ring-indigo-200",
+          compact
+            ? "h-8 rounded-full border-indigo-200 bg-indigo-50/80 px-3 text-[12px] font-semibold text-indigo-700"
+            : "h-10 rounded-md border-slate-200 px-3 text-[12.5px]"
         )}
       >
-        {options.map((opt) => (
-          <option key={opt} value={opt}>
-            {opt}
-          </option>
-        ))}
-      </select>
-      <ChevronDown className="size-3.5 absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+        <span className="flex min-w-0 items-center gap-1.5">
+          <span className="truncate">{selected?.label ?? value}</span>
+          {compact && selected?.meta && (
+            <span className="hidden text-[10px] font-medium text-slate-400 min-[390px]:inline">
+              {selected.meta}
+            </span>
+          )}
+        </span>
+        <ChevronDown
+          className={cn(
+            "size-3.5 shrink-0 text-indigo-500 transition-transform",
+            open && "rotate-180"
+          )}
+        />
+      </button>
+
+      {open && (
+        <div
+          className={cn(
+            "absolute z-50 overflow-hidden rounded-xl border border-slate-200 bg-white text-slate-800 shadow-[0_18px_48px_-20px_rgba(15,23,42,0.45)] ring-1 ring-slate-900/[0.03]",
+            compact ? "bottom-[calc(100%+0.5rem)] right-0 w-56" : "left-0 top-[calc(100%+0.35rem)] w-full min-w-56"
+          )}
+        >
+          {compact && (
+            <div className="border-b border-slate-100 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
+              Canvas Size
+            </div>
+          )}
+          <div role="listbox" aria-labelledby={buttonId} className="max-h-64 overflow-auto py-1">
+            {normalized.map((option) => {
+              const active = option.value === value;
+
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  role="option"
+                  aria-selected={active}
+                  onClick={() => {
+                    onChange(option.value);
+                    setOpen(false);
+                  }}
+                  className={cn(
+                    "flex w-full items-center gap-2 px-3 py-2 text-left text-[12.5px] transition-colors",
+                    active ? "bg-indigo-50 text-indigo-700" : "text-slate-700 hover:bg-slate-50"
+                  )}
+                >
+                  <span
+                    className={cn(
+                      "grid size-4 shrink-0 place-items-center rounded-full border",
+                      active ? "border-indigo-600 bg-indigo-600 text-white" : "border-slate-300 bg-white"
+                    )}
+                  >
+                    {active && <Check className="size-3" strokeWidth={3} />}
+                  </span>
+                  <span className="min-w-0 flex-1 truncate font-medium">{option.label}</span>
+                  {option.meta && (
+                    <span className="shrink-0 text-[10px] font-medium text-slate-400">
+                      {option.meta}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
