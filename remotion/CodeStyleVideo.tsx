@@ -20,10 +20,7 @@ import {
   type TypographyOverrides,
 } from "../lib/subtitles";
 import {compileStyleCode} from "../lib/compile-style-code";
-import {
-  computeStudioCaptionTypography,
-  mergeCaptionTypographyLayers,
-} from "../lib/subtitle-style-merge";
+import {mergeCaptionTypographyLayers} from "../lib/subtitle-style-merge";
 
 const CODE_TYPO_SCOPE = "cap-code-studio-typography-scope";
 
@@ -257,14 +254,13 @@ export function CodeStyleVideo(props: Partial<CodeStyleVideoProps>) {
 
   const {mergedStyleProps, mergedTypography} = React.useMemo(() => {
     const base = props.styleProps ?? {};
-    const baseStyleId =
-      props.customStyle?.baseStyle ?? props.style ?? "viral-tiktok";
-    if (!props.typography && !props.customStyle) {
+    const customTypography = props.customStyle?.typography;
+    if (!props.typography && !customTypography) {
       return {mergedStyleProps: base, mergedTypography: null as TypographyOverrides | null};
     }
-    const mergedTypographyInner = computeStudioCaptionTypography(
-      baseStyleId,
-      props.customStyle,
+
+    const mergedTypographyInner = mergeCaptionTypographyLayers(
+      customTypography ?? {},
       props.typography
     );
     return {
@@ -279,7 +275,7 @@ export function CodeStyleVideo(props: Partial<CodeStyleVideoProps>) {
       },
       mergedTypography: mergedTypographyInner,
     };
-  }, [props.styleProps, props.typography, props.customStyle, props.style]);
+  }, [props.styleProps, props.typography, props.customStyle]);
 
   const baseTypography = (mergedStyleProps.typography ?? {}) as TypographyOverrides;
   const typographyWithChunk = mergeCaptionTypographyLayers(
@@ -296,12 +292,14 @@ export function CodeStyleVideo(props: Partial<CodeStyleVideoProps>) {
   );
 
   const hasStudioTypography = Object.keys(props.typography ?? {}).length > 0;
+  const hasCustomStyleTypography =
+    Object.keys(props.customStyle?.typography ?? {}).length > 0;
   const hasChunkTypographyOverrides =
     activeChunk.overrides != null && Object.keys(activeChunk.overrides).length > 0;
   /** Same trigger as studio typography: inline styles in community code need `!important` to lose. */
   const studioTypographyActive =
     Object.keys(typographyForShell).length > 0 &&
-    (hasStudioTypography || hasChunkTypographyOverrides);
+    (hasStudioTypography || hasCustomStyleTypography || hasChunkTypographyOverrides);
 
   return (
     <AbsoluteFill
