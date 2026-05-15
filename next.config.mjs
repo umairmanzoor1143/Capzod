@@ -13,7 +13,9 @@ const nextConfig = {
       "./node_modules/@babel/standalone/package.json",
       "./node_modules/@babel/standalone/babel.js",
       "./node_modules/@remotion/compositor-linux-x64-gnu/**/*",
-      "./node_modules/@remotion/compositor-linux-x64-musl/**/*"
+      "./node_modules/@remotion/compositor-linux-x64-musl/**/*",
+      "./node_modules/.pnpm/@remotion+compositor-linux-x64-gnu@*/node_modules/@remotion/compositor-linux-x64-gnu/**/*",
+      "./node_modules/.pnpm/@remotion+compositor-linux-x64-musl@*/node_modules/@remotion/compositor-linux-x64-musl/**/*"
     ]
   },
   serverExternalPackages: [
