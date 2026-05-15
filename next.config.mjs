@@ -9,7 +9,9 @@ const nextConfig = {
       "./remotion/**/*",
       "./lib/subtitles.ts",
       "./lib/subtitle-style-merge.ts",
-      "./lib/compile-style-code.ts"
+      "./lib/compile-style-code.ts",
+      "./node_modules/@babel/standalone/package.json",
+      "./node_modules/@babel/standalone/babel.js"
     ]
   },
   serverExternalPackages: [
