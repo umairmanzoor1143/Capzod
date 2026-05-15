@@ -6,25 +6,15 @@ const nextConfig = {
   outputFileTracingRoot: path.join(process.cwd()),
   outputFileTracingIncludes: {
     "/api/render": [
-      "./remotion/**/*",
-      "./lib/subtitles.ts",
-      "./lib/subtitle-style-merge.ts",
-      "./lib/compile-style-code.ts",
-      "./node_modules/@babel/standalone/package.json",
-      "./node_modules/@babel/standalone/babel.js",
+      "./.remotion-bundle/**/*",
       "./node_modules/@remotion/compositor-linux-x64-gnu/**/*",
-      "./node_modules/@remotion/compositor-linux-x64-musl/**/*",
       "./node_modules/.pnpm/@remotion+compositor-linux-x64-gnu@*/node_modules/@remotion/compositor-linux-x64-gnu/**/*",
-      "./node_modules/.pnpm/@remotion+compositor-linux-x64-musl@*/node_modules/@remotion/compositor-linux-x64-musl/**/*",
-      "./node_modules/.remotion/chrome-headless-shell/**/*"
+      "./node_modules/@sparticuz/chromium/**/*",
+      "./node_modules/.pnpm/@sparticuz+chromium@*/node_modules/@sparticuz/chromium/**/*"
     ]
   },
   serverExternalPackages: [
-    "@remotion/bundler",
-    "@remotion/renderer",
-    "@remotion/studio",
-    "@rspack/core",
-    "esbuild"
+    "@remotion/renderer"
   ],
   transpilePackages: ["remotion", "@remotion/player"]
 };

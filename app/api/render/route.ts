@@ -1,4 +1,3 @@
-import {bundle} from "@remotion/bundler";
 import {renderMedia, selectComposition} from "@remotion/renderer";
 import {createClient} from "@/lib/supabase/server";
 import {NextResponse} from "next/server";
@@ -92,19 +91,15 @@ function compressTransparent(
   });
 }
 
-// Cache the webpack bundle across requests; bundling takes 5–15s on cold start.
-let bundlePromise: Promise<string> | null = null;
-function getBundle() {
-  if (!bundlePromise) {
-    bundlePromise = bundle({
-      entryPoint: path.join(process.cwd(), "remotion", "index.ts"),
-      webpackOverride: (config) => config
-    }).catch((err) => {
-      bundlePromise = null;
-      throw err;
-    });
+const remotionBundlePath = path.join(process.cwd(), ".remotion-bundle");
+
+async function getServerlessBrowserExecutable() {
+  if (!process.env.VERCEL && process.platform !== "linux") {
+    return null;
   }
-  return bundlePromise;
+
+  const chromium = (await import("@sparticuz/chromium")).default;
+  return chromium.executablePath();
 }
 
 export async function POST(request: Request) {
@@ -149,9 +144,8 @@ export async function POST(request: Request) {
         controller.enqueue(encoder.encode(JSON.stringify(event) + "\n"));
       };
       try {
-        send({type: "stage", stage: "bundling", progress: 0});
-
-        const bundled = await getBundle();
+        send({type: "stage", stage: "preparing", progress: 0});
+        const browserExecutable = await getServerlessBrowserExecutable();
 
         send({type: "stage", stage: "composing", progress: 0.05});
 
@@ -169,9 +163,11 @@ export async function POST(request: Request) {
             }
           : {text, style, background, subtitles, width, height, customStyle, typography};
         const composition = await selectComposition({
-          serveUrl: bundled,
+          serveUrl: remotionBundlePath,
           id: compositionId,
-          inputProps
+          inputProps,
+          browserExecutable,
+          chromeMode: browserExecutable ? "chrome-for-testing" : "headless-shell"
         });
 
         send({type: "stage", stage: "rendering", progress: 0.1});
@@ -181,7 +177,7 @@ export async function POST(request: Request) {
 
         await renderMedia({
           composition,
-          serveUrl: bundled,
+          serveUrl: remotionBundlePath,
           codec,
           // ProRes 4444 has full alpha; profile must be "4444" or "4444-xq".
           proResProfile: codec === "prores" ? "4444" : undefined,
@@ -193,6 +189,8 @@ export async function POST(request: Request) {
           concurrency,
           inputProps,
           outputLocation,
+          browserExecutable,
+          chromeMode: browserExecutable ? "chrome-for-testing" : "headless-shell",
           chromiumOptions: {gl: "angle"},
           onProgress: ({progress, renderedFrames, encodedFrames, stitchStage}) => {
             send({

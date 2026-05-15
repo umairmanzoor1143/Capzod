@@ -1,3 +1,6 @@
 node_modules
 .next
 .env*.local
+.remotion-bundle
+.remotion-public
+build
