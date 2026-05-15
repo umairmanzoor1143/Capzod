@@ -15,7 +15,8 @@ const nextConfig = {
       "./node_modules/@remotion/compositor-linux-x64-gnu/**/*",
       "./node_modules/@remotion/compositor-linux-x64-musl/**/*",
       "./node_modules/.pnpm/@remotion+compositor-linux-x64-gnu@*/node_modules/@remotion/compositor-linux-x64-gnu/**/*",
-      "./node_modules/.pnpm/@remotion+compositor-linux-x64-musl@*/node_modules/@remotion/compositor-linux-x64-musl/**/*"
+      "./node_modules/.pnpm/@remotion+compositor-linux-x64-musl@*/node_modules/@remotion/compositor-linux-x64-musl/**/*",
+      "./node_modules/.remotion/chrome-headless-shell/**/*"
     ]
   },
   serverExternalPackages: [
