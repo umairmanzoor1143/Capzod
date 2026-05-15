@@ -132,7 +132,11 @@ function StudioCodeGlobalTypographyShell({
  * Props handed to the user-defined caption component on every frame.
  */
 export type CodeStyleRenderProps = {
-  chunk: SubtitleItem;
+  chunk: SubtitleItem & {
+    startFrame: number;
+    endFrame: number;
+    durationInFrames: number;
+  };
   activeWordIndex: number;
   words: string[];
   text: string;
@@ -240,7 +244,18 @@ export function CodeStyleVideo(props: Partial<CodeStyleVideoProps>) {
     );
   }
 
-  const localFrame = frame - secondsToFrames(activeChunk.start, fps);
+  const chunkStartFrame = secondsToFrames(activeChunk.start, fps);
+  const chunkEndFrame = Math.max(
+    chunkStartFrame + 1,
+    secondsToFrames(activeChunk.end, fps)
+  );
+  const activeChunkWithFrames = {
+    ...activeChunk,
+    startFrame: chunkStartFrame,
+    endFrame: chunkEndFrame,
+    durationInFrames: chunkEndFrame - chunkStartFrame,
+  };
+  const localFrame = frame - chunkStartFrame;
   const relativeSecond = currentSecond - activeChunk.start;
   const wordIndex = activeChunk.wordTimings.findIndex(
     (word) => relativeSecond >= word.start && relativeSecond < word.end
@@ -311,7 +326,7 @@ export function CodeStyleVideo(props: Partial<CodeStyleVideoProps>) {
       }}
     >
       <UserErrorBoundary fallback={<FallbackCaption
-        chunk={activeChunk}
+        chunk={activeChunkWithFrames}
         activeWordIndex={activeWordIndex}
         words={activeChunk.words}
         text={activeChunk.text}
@@ -328,7 +343,7 @@ export function CodeStyleVideo(props: Partial<CodeStyleVideoProps>) {
           mergedTypography={typographyForShell}
         >
           <Component
-            chunk={activeChunk}
+            chunk={activeChunkWithFrames}
             activeWordIndex={activeWordIndex}
             words={activeChunk.words}
             text={activeChunk.text}

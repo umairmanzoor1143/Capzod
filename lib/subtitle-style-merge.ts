@@ -292,6 +292,21 @@ export const styleConfigs: Record<SubtitleStyleId, StyleConfig> = {
     textShadow: "0 0 18px #f97316, 0 10px 0 #7f1d1d",
     animation: "flash",
   },
+  "creator-highlight": {
+    fontSize: 76,
+    fontFamily: "Arial Black, Impact, system-ui, sans-serif",
+    weight: 950,
+    textTransform: "uppercase",
+    color: "#f8fafc",
+    accent: "#f7df36",
+    stroke: "2px rgba(0,0,0,.82)",
+    textShadow: "0 3px 0 rgba(0,0,0,.9), 0 8px 18px rgba(0,0,0,.68)",
+    animation: "fade",
+    wordMode: true,
+    singleLine: true,
+    lineHeight: 0.95,
+    maxWidthPercent: 92,
+  },
 };
 
 export function styleConfigToTypography(cfg: StyleConfig): TypographyOverrides {

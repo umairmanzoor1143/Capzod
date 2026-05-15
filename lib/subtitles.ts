@@ -22,6 +22,7 @@ export const builtInSubtitleStyleIds = [
   "split-color",
   "minimal-caps",
   "fire-flash",
+  "creator-highlight",
 ] as const;
 
 export type SubtitleStyleId = (typeof builtInSubtitleStyleIds)[number];
@@ -177,7 +178,8 @@ export const subtitleStyles: SubtitleStyle[] = [
   {id: "cinematic", name: "Cinematic", description: "Letterbox style with refined motion", accent: "#e5e7eb", previewClass: "font-serif uppercase text-slate-100"},
   {id: "split-color", name: "Split Color", description: "Alternating word colors and snap motion", accent: "#4ade80", previewClass: "font-black uppercase text-green-200"},
   {id: "minimal-caps", name: "Minimal Caps", description: "Tiny uppercase captions with wide spacing", accent: "#94a3b8", previewClass: "font-bold uppercase text-slate-200"},
-  {id: "fire-flash", name: "Fire Flash", description: "Hot red flash with aggressive entry", accent: "#f97316", previewClass: "font-black uppercase text-orange-200"}
+  {id: "fire-flash", name: "Fire Flash", description: "Hot red flash with aggressive entry", accent: "#f97316", previewClass: "font-black uppercase text-orange-200"},
+  {id: "creator-highlight", name: "Creator Highlight", description: "White creator captions with one yellow active word", accent: "#f7df36", previewClass: "font-black uppercase text-yellow-300"}
 ];
 
 export function isBuiltInSubtitleStyleId(value: unknown): value is SubtitleStyleId {

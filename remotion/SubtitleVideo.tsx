@@ -126,18 +126,26 @@ function RenderedText({
       }}
     >
       {config.wordMode || ["split-color", "vertical-stack"].includes(styleId) ? (
-        <span style={{display: "flex", flexWrap: "wrap", justifyContent: "center", gap: "8px 20px"}}>
+        <span
+          style={{
+            display: "flex",
+            flexWrap: config.singleLine ? "nowrap" : "wrap",
+            justifyContent: "center",
+            gap: styleId === "creator-highlight" ? "8px 14px" : "8px 20px"
+          }}
+        >
           {words.map((word, index) => {
             const active = index === activeWordIndex;
             const vertical = styleId === "vertical-stack";
+            const creatorHighlight = styleId === "creator-highlight";
             return (
               <span
                 key={`${chunk.id}-${word}-${index}`}
                 style={{
                   display: vertical ? "block" : "inline-block",
                   flexBasis: vertical ? "100%" : "auto",
-                  color: active || index % 2 === 1 ? config.accent : config.color === "transparent" ? config.accent : config.color,
-                  transform: active ? "scale(1.12) translateY(-3px)" : "scale(1)",
+                  color: active || (!creatorHighlight && index % 2 === 1) ? config.accent : config.color === "transparent" ? config.accent : config.color,
+                  transform: active ? `scale(${creatorHighlight ? 1.03 : 1.12}) translateY(${creatorHighlight ? -1 : -3}px)` : "scale(1)",
                   background: styleId === "karaoke-bar" && active ? config.accent : undefined,
                   padding: styleId === "karaoke-bar" && active ? "2px 12px" : undefined,
                   borderRadius: styleId === "karaoke-bar" && active ? 8 : undefined

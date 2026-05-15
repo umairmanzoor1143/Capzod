@@ -4,6 +4,14 @@ import path from "node:path";
 const nextConfig = {
   reactStrictMode: true,
   outputFileTracingRoot: path.join(process.cwd()),
+  outputFileTracingIncludes: {
+    "/api/render": [
+      "./remotion/**/*",
+      "./lib/subtitles.ts",
+      "./lib/subtitle-style-merge.ts",
+      "./lib/compile-style-code.ts"
+    ]
+  },
   serverExternalPackages: [
     "@remotion/bundler",
     "@remotion/renderer",

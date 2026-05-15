@@ -46,9 +46,9 @@ export function RemotionRoot() {
         durationInFrames={getTimelineDurationInFrames(sampleScript, fps)}
         defaultProps={{text: sampleScript, background: "black" as const}}
         calculateMetadata={({props}) => {
-          const typed = props as {text?: string; subtitles?: never; width?: number; height?: number};
+          const typed = props as SubtitleVideoProps;
           return {
-            durationInFrames: getTimelineDurationInFrames(typed.text ?? sampleScript, fps),
+            durationInFrames: getTimelineDurationInFrames(typed.text ?? sampleScript, fps, typed.subtitles),
             width: typed.width ?? 1080,
             height: typed.height ?? 1920
           };
