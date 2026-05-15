@@ -11,7 +11,9 @@ const nextConfig = {
       "./lib/subtitle-style-merge.ts",
       "./lib/compile-style-code.ts",
       "./node_modules/@babel/standalone/package.json",
-      "./node_modules/@babel/standalone/babel.js"
+      "./node_modules/@babel/standalone/babel.js",
+      "./node_modules/@remotion/compositor-linux-x64-gnu/**/*",
+      "./node_modules/@remotion/compositor-linux-x64-musl/**/*"
     ]
   },
   serverExternalPackages: [
