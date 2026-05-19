@@ -1,6 +1,12 @@
 node_modules
 .next
 .env*.local
+dist
+out
+coverage
+logs
+*.log
+*.tsbuildinfo   
 .remotion-bundle
 .remotion-public
 build

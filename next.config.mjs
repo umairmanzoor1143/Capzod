@@ -6,15 +6,18 @@ const nextConfig = {
   outputFileTracingRoot: path.join(process.cwd()),
   outputFileTracingIncludes: {
     "/api/render": [
-      "./.remotion-bundle/**/*",
-      "./node_modules/@remotion/compositor-linux-x64-gnu/**/*",
-      "./node_modules/.pnpm/@remotion+compositor-linux-x64-gnu@*/node_modules/@remotion/compositor-linux-x64-gnu/**/*",
-      "./node_modules/@sparticuz/chromium/**/*",
-      "./node_modules/.pnpm/@sparticuz+chromium@*/node_modules/@sparticuz/chromium/**/*"
+      "./remotion/**/*",
+      "./lib/subtitles.ts",
+      "./lib/subtitle-style-merge.ts",
+      "./lib/compile-style-code.ts"
     ]
   },
   serverExternalPackages: [
-    "@remotion/renderer"
+    "@remotion/bundler",
+    "@remotion/renderer",
+    "@remotion/studio",
+    "@rspack/core",
+    "esbuild"
   ],
   transpilePackages: ["remotion", "@remotion/player"]
 };
