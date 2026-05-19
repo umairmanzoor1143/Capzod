@@ -1,3 +1,10 @@
 node_modules
 .next
 .env*.local
+build
+dist
+out
+coverage
+logs
+*.log
+*.tsbuildinfo   
